@@ -388,6 +388,9 @@ const CHEER = [
 ];
 const cheerFor = key => CHEER[((dayNum(key) % CHEER.length) + CHEER.length) % CHEER.length];
 const REMINDER_TITLE = 'A minute for yourself? Check in with Steady.';
+// The installed site (npm run app:site) has an app manifest. Elsewhere, such as the claude.ai demo, downloads are blocked.
+const IS_SITE = !!document.querySelector?.('link[rel="manifest"]');
+const SITE_URL = 'https://hf-christian.github.io/steady-app/';
 // A calendar file with one daily repeating event. Floating local time (no time zone), so it follows the phone.
 function reminderIcs(time, startKey, stamp = new Date()) {
   const [hh, mm] = (/^\d{2}:\d{2}$/.test(time) ? time : '20:00').split(':');
@@ -426,8 +429,8 @@ function reminderCard() {
     <p class="small muted">Adds a daily event to your phone's calendar. The alert says "${REMINDER_TITLE}" and never names your habit.</p>
     <p class="small muted">${claim('reminder.routine')}</p>
     ${phone ? '<p class="small muted">This adds one notification a day. If you\'re cutting down on phone use, you can skip it.</p>' : ''}
-    <form id="reminderForm" class="reminder-form"><label>Time<input id="rTime" type="time" value="${esc(state.reminder?.time || '20:00')}" required></label><button type="submit">Add to my calendar</button></form>
-    ${state.reminder ? `<p class="small muted">You added a reminder for ${esc(state.reminder.time)}. To stop it, delete the event in your calendar.</p>` : '<p class="small muted">To stop it later, delete the event in your calendar.</p>'}
+    ${!IS_SITE ? `<p class="small">The calendar reminder works in the home-screen version: <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE_URL.replace('https://', '')}</a></p>` : `<form id="reminderForm" class="reminder-form"><label>Time<input id="rTime" type="time" value="${esc(state.reminder?.time || '20:00')}" required></label><button type="submit">Add to my calendar</button></form>
+    ${state.reminder ? `<p class="small muted">You added a reminder for ${esc(state.reminder.time)}. To stop it, delete the event in your calendar.</p>` : '<p class="small muted">To stop it later, delete the event in your calendar.</p>'}`}
   </section>`;
 }
 
