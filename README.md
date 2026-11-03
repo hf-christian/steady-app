@@ -7,6 +7,8 @@ A friendly habit tracker for quitting bad habits: streaks, milestones, rewards y
 **Add it to your home screen**
 - iPhone (Safari): tap Share, then "Add to Home Screen".
 - Android (Chrome): tap the menu, then "Install app" or "Add to Home screen".
+- Samsung Internet: Google Play Protect may block Samsung's install, because Samsung builds it for an older Android version. Use Chrome instead, or Samsung's menu: Add page to, Home screen.
+- Once installed, long-press the icon for quick "Clean day" and "I slipped" check-ins (Android).
 
 **Privacy:** everything you enter stays on your phone, in the browser's storage. Nothing is sent to a server. The daily reminder is an event in your own calendar, and you can delete it at any time.
 

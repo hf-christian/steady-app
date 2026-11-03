@@ -79,6 +79,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .checkin { border-color: var(--accent); background: var(--accent-soft); }
 .checkin h2 { margin: 0; }
 .reminder-form { display: flex; flex-direction: column; gap: 10px; }
+button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font: inherit; font-weight: 700; cursor: pointer; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .habit { cursor: pointer; text-align: left; width: 100%; font-weight: 400; border-radius: var(--radius); padding: 20px; align-items: stretch; transition: border-color .15s, transform .15s; }
@@ -195,11 +196,23 @@ const CLAIMS = {
     [365, 'After 1 year', 'The risk of heart disease, stroke, type 2 diabetes and several cancers may fall.'],
   ] },
   'health.vaping.none': "There's no official timeline yet for how the body recovers after quitting vaping, so Steady doesn't guess. Your clean days and money saved still count.",
-  'help.emergency': '911',
-  'help.ncmh': { about: 'National Center for Mental Health crisis hotline: 24/7 and free', lines: [['Nationwide landline', '1553'], ['Smart / TNT', '0919 057 1553'], ['Globe / TM', '0917 899 8727']] },
-  'help.quitline': { about: 'DOH Quitline: free counselling and a quit plan, for smoking and vaping', lines: [['Call', '1558', 'Toll-free']], text: ['STOPSMOKE', '29290 165364'] },
-  'help.drugs': { about: 'DOH Substance Abuse Helpline: free and confidential support, and referral to treatment, for people who use drugs and their families', lines: [['Call', '1550']] },
-  'help.gambling': { about: 'National Problem Gambling Helpline (PAGCOR and Seagulls Flock): 24/7, free and confidential, for gamblers and their families', lines: [['Call', '(02) 8248 9568']], site: 'https://npgh.ph/' },
+  // Help lines by country (ADR 0007). Emergency is a number as text; the others are { name, about, lines: [[label, number, note?]], ... }.
+  'help.PH.emergency': '911',
+  'help.PH.crisis': { name: 'NCMH', about: 'National Center for Mental Health crisis hotline: 24/7 and free', lines: [['Nationwide landline', '1553'], ['Smart / TNT', '0919 057 1553'], ['Globe / TM', '0917 899 8727']] },
+  'help.PH.quit': { about: 'DOH Quitline: free counselling and a quit plan, for smoking and vaping', lines: [['Call', '1558', 'Toll-free']], text: ['STOPSMOKE', '29290 165364'] },
+  'help.PH.drugs': { about: 'DOH Substance Abuse Helpline: free and confidential support, and referral to treatment, for people who use drugs and their families', lines: [['Call', '1550']] },
+  'help.PH.gambling': { about: 'National Problem Gambling Helpline (PAGCOR and Seagulls Flock): 24/7, free and confidential, for gamblers and their families', lines: [['Call', '(02) 8248 9568']], site: 'https://npgh.ph/', chat: 'You can also message them on Viber.' },
+  'help.US.emergency': '911',
+  'help.US.crisis': { name: 'the 988 Lifeline', about: '988 Suicide & Crisis Lifeline: 24/7, free and confidential', lines: [['Call or text', '988']], chat: 'Or chat online at chat.988lifeline.org.' },
+  'help.GB.emergency': '999',
+  'help.GB.crisis': { name: 'Samaritans', about: 'Samaritans: free from any phone, 24 hours a day, in the UK and Ireland', lines: [['Call', '116 123']] },
+  'help.AU.emergency': 'Triple Zero (000)',
+  'help.AU.crisis': { name: 'Lifeline', about: 'Lifeline Australia: crisis support by phone and text. Online chat is available 24/7.', lines: [['Call', '13 11 14'], ['Text', '0477 13 11 14']] },
+  'help.CA.emergency': '9-1-1',
+  'help.CA.crisis': { name: '9-8-8', about: '9-8-8 Suicide Crisis Helpline: 24 hours a day, every day of the year', lines: [['Call or text', '9-8-8']] },
+  'help.SG.emergency': '995 (ambulance) or 999 (police)',
+  'help.SG.crisis': { name: 'SOS', about: 'Samaritans of Singapore (SOS): 24-hour hotline', lines: [['Call', '1767']], chat: 'Or use 24-hour CareText on WhatsApp: 9151 1767.' },
+  'help.directory': { about: 'Find A Helpline lists free, verified help lines in over 175 countries. It is run by ThroughLine.', site: 'https://findahelpline.com/' },
 };
 const claim = id => { if (!(id in CLAIMS)) throw new Error(`Unknown claim: ${id}`); return CLAIMS[id]; };
 const MILESTONES = [
@@ -348,7 +361,7 @@ const habitById = id => state.habits.find(h => h.id === id);
 const footer = `<footer>Steady is a habit support tool, not medical treatment or medical advice. If you think you may be dependent on alcohol or another substance, talk to a doctor.</footer>`;
 
 function render() {
-  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen };
+  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen };
   app.innerHTML = `<div class="view">${(screens[view.name] || home)()}</div>${footer}`;
   bind();
 }
@@ -391,6 +404,15 @@ const REMINDER_TITLE = 'A minute for yourself? Check in with Steady.';
 // The installed site (npm run app:site) has an app manifest. Elsewhere, such as the claude.ai demo, downloads are blocked.
 const IS_SITE = !!document.querySelector?.('link[rel="manifest"]');
 const SITE_URL = 'https://hf-christian.github.io/steady-app/';
+// Samsung Internet installs sites as an old-style Android package that Play Protect blocks (ADR 0005 update), so suggest Chrome.
+const IS_SAMSUNG = /SamsungBrowser/i.test(navigator.userAgent || '');
+const standalone = () => { try { return !!window.matchMedia?.('(display-mode: standalone)').matches; } catch { return false; } };
+function samsungNote() {
+  if (!IS_SITE || !IS_SAMSUNG || standalone() || state.samsungNoteHidden) return '';
+  return `<div class="notice soft"><h3>Installing from Samsung Internet?</h3>
+    <p class="small">Google Play Protect may block Samsung's install, because Samsung builds it for an older Android version. Steady itself asks for no permissions. To install, open this page in Chrome, or use the menu: Add page to, Home screen.</p>
+    <div class="row"><button data-copy="${SITE_URL}">Copy link</button><button class="ghost" data-act="hidesamsung">Hide</button></div></div>`;
+}
 // A calendar file with one daily repeating event. Floating local time (no time zone), so it follows the phone.
 function reminderIcs(time, startKey, stamp = new Date()) {
   const [hh, mm] = (/^\d{2}:\d{2}$/.test(time) ? time : '20:00').split(':');
@@ -418,6 +440,8 @@ function checkinCard() {
   if (!state.habits.length) return '';
   const t = todayKey();
   if (state.checkin === t) return `<section class="card checkin"><span class="eyebrow">Today</span><h2>Checked in.</h2><p class="muted">${cheerFor(t)}</p></section>`;
+  if (view.confirmClean) return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>Log today as a clean day?</h2>
+    <div class="row"><button class="primary" data-act="checkin">Yes, clean day</button><button class="ghost" data-act="cancelslip">Not now</button></div></section>`;
   if (view.pickSlip) return `<section class="card checkin"><h2>Which habit?</h2>
     <div class="row">${state.habits.map(h => `<button data-slipfor="${h.id}">${esc(h.name)}</button>`).join('')}<button class="ghost" data-act="cancelslip">Back</button></div></section>`;
   return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>How did today go?</h2>
@@ -461,6 +485,7 @@ function home() {
     </header>
     <div class="home-grid">
       <div class="col">
+        ${samsungNote()}
         ${checkinCard()}
         ${state.habits.length ? `<div class="cards">${cards}</div>` : `<div class="card"><h2>Start with one habit</h2><p class="muted">Add something you want to stop. Steady counts your clean days, your money saved and the rewards you set for yourself.</p></div>`}
         <button class="primary mobile-add" data-go="add">Add a habit</button>
@@ -469,7 +494,7 @@ function home() {
         <section class="card"><h3>How Steady counts</h3>
           <p class="small muted">Milestones and rewards use clean days, so a slip never takes one away. Only the current run starts again.</p></section>
         ${reminderCard()}
-        <section class="demo" aria-label="Demo tools">
+        ${IS_SITE ? '' : `<section class="demo" aria-label="Demo tools">
           <span class="eyebrow">Demo tools</span>
           <p class="small muted">Move the clock forward to show streaks, milestones and rewards without waiting real days.</p>
           <div class="row">
@@ -477,7 +502,7 @@ function home() {
             ${state.demoOffsetDays ? '<button class="ghost" data-act="resetclock">Back to today</button>' : ''}
             ${state.habits.some(h => h.example) ? '<button class="ghost" data-act="clearex">Remove examples</button>' : '<button class="ghost" data-act="addex">Load examples</button>'}
           </div>
-        </section>
+        </section>`}
       </aside>
     </div>`;
 }
@@ -558,7 +583,7 @@ function bounceScreen() {
       <p>Noticing the trigger helps you plan for it next time.</p>
       ${h.plan ? `<p class="small">Your plan: <b>${esc(h.plan)}</b></p>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>'}
     </section>
-    ${h.type === 'drugs' ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${claim('help.emergency')}.</p></div>` : ''}
+    ${h.type === 'drugs' ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${emergencyText(country())}.</p></div>` : ''}
     ${serious ? `<div class="notice soft"><h3>If slips keep happening</h3><p>Talking to a professional can help. That's a strong step, not a failure.</p><div class="row"><button data-go="help">See help lines</button></div></div>` : ''}
     <button class="primary" data-open="${h.id}">Start my new run</button></div>`;
 }
@@ -580,7 +605,7 @@ function addScreen() {
       <label>Started on<input id="start" type="date" required value="${esc(d.start || todayKey())}" max="${todayKey()}"></label>
       <div class="two">
         <label>Cost per day<input id="cost" type="number" min="0" step="any" inputmode="decimal" value="${esc(d.cost ?? '')}" placeholder="0"></label>
-        <label>Currency<select id="currency">${CURRENCIES.map(c => `<option ${(d.currency || 'PHP') === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>Currency<select id="currency">${CURRENCIES.map(c => `<option ${(d.currency || country().currency) === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       </div>
       <p class="small muted">Your own rough estimate of what this habit costs a day. Steady uses it for the money-saved counter.</p>
       <div class="two">
@@ -598,29 +623,101 @@ function addScreen() {
         <p>Steady is a support tool, not treatment. Free, confidential help lines are on the Get help screen.</p>
         <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor before stopping anything that could cause withdrawal.</label></div>` : ''}
       ${gambling ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3>
-        <p>${claim('gambling.tools')} The free 24/7 National Problem Gambling Helpline is on the Get help screen. If gambling ever makes you feel hopeless or think about harming yourself, call the NCMH crisis line on <b>${claim('help.ncmh').lines[0][1]}</b> now.</p></div>` : ''}
+        <p>${claim('gambling.tools')} ${country().gambling ? 'A free gambling help line is' : 'Help lines are'} on the Get help screen. If gambling ever makes you feel hopeless or think about harming yourself, call ${crisisText(country())} now.</p></div>` : ''}
       <div class="row"><button class="primary" type="submit">Save habit</button></div>
     </form></div>`;
+}
+
+// ---------- country and help lines (ADR 0007) ----------
+// Written as direct claim() calls so the evidence check can see each one is used.
+// A country is listed only when its emergency number and crisis line are confirmed (rule 10); missing kinds show "No confirmed line yet".
+const COUNTRIES = {
+  PH: { name: 'Philippines', currency: 'PHP', emergency: () => claim('help.PH.emergency'), crisis: () => claim('help.PH.crisis'),
+        quit: () => claim('help.PH.quit'), gambling: () => claim('help.PH.gambling'), drugs: () => claim('help.PH.drugs') },
+  US: { name: 'United States', currency: 'USD', emergency: () => claim('help.US.emergency'), crisis: () => claim('help.US.crisis') },
+  GB: { name: 'United Kingdom', currency: 'GBP', emergency: () => claim('help.GB.emergency'), crisis: () => claim('help.GB.crisis') },
+  AU: { name: 'Australia', currency: 'AUD', emergency: () => claim('help.AU.emergency'), crisis: () => claim('help.AU.crisis') },
+  CA: { name: 'Canada', currency: 'CAD', emergency: () => claim('help.CA.emergency'), crisis: () => claim('help.CA.crisis') },
+  SG: { name: 'Singapore', currency: 'SGD', emergency: () => claim('help.SG.emergency'), crisis: () => claim('help.SG.crisis') },
+  XX: { name: 'Somewhere else', currency: 'PHP', directory: () => claim('help.directory') },
+};
+const TZ_COUNTRY = {
+  'Asia/Manila': 'PH', 'Asia/Singapore': 'SG', 'Europe/London': 'GB', 'Europe/Belfast': 'GB',
+  'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US', 'America/Phoenix': 'US',
+  'America/Anchorage': 'US', 'America/Juneau': 'US', 'America/Sitka': 'US', 'America/Nome': 'US', 'America/Yakutat': 'US', 'America/Metlakatla': 'US',
+  'America/Adak': 'US', 'America/Boise': 'US', 'America/Detroit': 'US', 'America/Menominee': 'US', 'Pacific/Honolulu': 'US',
+  'America/Toronto': 'CA', 'America/Montreal': 'CA', 'America/Vancouver': 'CA', 'America/Edmonton': 'CA', 'America/Winnipeg': 'CA',
+  'America/Halifax': 'CA', 'America/St_Johns': 'CA', 'America/Regina': 'CA', 'America/Moncton': 'CA', 'America/Glace_Bay': 'CA',
+  'America/Goose_Bay': 'CA', 'America/Whitehorse': 'CA', 'America/Dawson': 'CA', 'America/Dawson_Creek': 'CA', 'America/Fort_Nelson': 'CA',
+  'America/Creston': 'CA', 'America/Yellowknife': 'CA', 'America/Inuvik': 'CA', 'America/Iqaluit': 'CA', 'America/Rankin_Inlet': 'CA',
+  'America/Resolute': 'CA', 'America/Cambridge_Bay': 'CA', 'America/Atikokan': 'CA', 'America/Swift_Current': 'CA', 'America/Thunder_Bay': 'CA',
+  'America/Nipigon': 'CA', 'America/Rainy_River': 'CA', 'America/Pangnirtung': 'CA', 'America/Blanc-Sablon': 'CA',
+};
+// Time zone first. The language region is used only when there's no time zone, because en-US is common far outside the US.
+function guessCountry(tz, langs = []) {
+  if (tz) {
+    if (TZ_COUNTRY[tz]) return TZ_COUNTRY[tz];
+    if (/^America\/(Indiana|Kentucky|North_Dakota)\//.test(tz)) return 'US';
+    if (tz.startsWith('Australia/')) return 'AU';
+    if (!/^(UTC|Etc\/)/.test(tz)) return 'XX';
+  }
+  for (const l of langs) { const region = String(l).split('-')[1]?.toUpperCase(); if (region && COUNTRIES[region] && region !== 'XX') return region; }
+  return 'XX';
+}
+function phoneGuess() {
+  let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* no time zone */ }
+  return guessCountry(tz, navigator.languages || (navigator.language ? [navigator.language] : []));
+}
+const countryCode = () => (COUNTRIES[state.country] ? state.country : phoneGuess());
+const country = () => COUNTRIES[countryCode()];
+const emergencyText = c => (c.emergency ? c.emergency() : 'your local emergency number');
+const crisisText = c => (c.crisis ? `${c.crisis().name} on <b>${c.crisis().lines[0][1]}</b>` : 'your local crisis line');
+
+function countryPicker(selected) {
+  return `<label>Country<select id="country">${Object.entries(COUNTRIES).map(([code, c]) => `<option value="${code}" ${code === selected ? 'selected' : ''}>${c.name}</option>`).join('')}</select></label>`;
+}
+function countryScreen() {
+  const first = view.first;
+  return `<div class="narrow">
+    ${first ? '' : '<header class="top"><button class="ghost" data-go="help">← Back</button></header>'}
+    <div class="card">
+      ${first ? `<span class="eyebrow">Welcome to Steady</span>` : ''}
+      <h1>Where are you?</h1>
+      <p class="muted">We only use this to show the right help lines. It stays on this phone.</p>
+      <form id="countryForm" class="reminder-form">${countryPicker(countryCode())}<button class="primary" type="submit">${first ? 'Continue' : 'Save'}</button></form>
+      ${samsungNote()}
+    </div>
+    ${first ? '<button class="ghost" data-go="help">Need help right now?</button>' : ''}
+  </div>`;
 }
 
 function helpScreen() {
   const line = (label, num, note) => `<div class="help-line"><div class="label"><span class="small muted">${label}</span><span class="phone">${num}</span>${note ? `<span class="small muted">${note}</span>` : ''}</div>
     <div class="row"><button class="ghost" data-copy="${num}">Copy</button><a class="btn ghost" href="tel:${num.replace(/[^0-9+]/g, '')}">Call</a></div></div>`;
-  const ncmh = claim('help.ncmh'), quit = claim('help.quitline'), gamb = claim('help.gambling'), drug = claim('help.drugs');
   const lines = c => c.lines.map(l => line(...l)).join('');
+  const c = country();
+  const site = s => `<a href="${s}" target="_blank" rel="noopener">${s.replace(/^https:\/\/|\/$/g, '')}</a>`;
+  const notEmergency = `It's not an emergency line. In a crisis, call ${crisisText(c)}.`;
+  const kind = (title, get, extra = () => '') => {
+    if (!c.crisis) return '';
+    if (!get) return `<section class="card"><h2>${title}</h2><p class="small muted">No confirmed line yet for ${c.name}. If you need to talk to someone now, call ${crisisText(c)}.</p></section>`;
+    const k = get();
+    return `<section class="card"><h2>${title}</h2><p class="small muted">${k.about}</p>${lines(k)}${extra(k)}</section>`;
+  };
   return `
     <header class="top"><button class="ghost" data-go="home">← Back</button></header>
-    <div class="brand"><h1>Get help</h1><p class="muted">Free help lines in the Philippines. If you're in danger right now, call ${claim('help.emergency')}.</p></div>
+    <div class="brand"><h1>Get help</h1>
+      <p class="muted">If you're in danger right now, call ${emergencyText(c)}.</p>
+      <p class="small">Help lines for: <b>${c.name}</b> · <button class="link" data-go="country">Change</button></p></div>
     <div class="help-grid">
-      <section class="card"><h2>Crisis support</h2><p class="small muted">${ncmh.about}</p>${lines(ncmh)}</section>
-      <section class="card"><h2>Quit smoking or vaping</h2><p class="small muted">${quit.about}</p>
-        ${lines(quit)}<p class="small">Or text <b>${quit.text[0]}</b> to <span class="num">${quit.text[1]}</span>.</p></section>
-      <section class="card"><h2>Gambling</h2><p class="small muted">${gamb.about}</p>
-        ${lines(gamb)}<p class="small">Or message them on Viber, or visit <a href="${gamb.site}" target="_blank" rel="noopener">npgh.ph</a>. It's not an emergency line; in a crisis, call NCMH on <b>${ncmh.lines[0][1]}</b>.</p></section>
-      <section class="card"><h2>Drug use</h2><p class="small muted">${drug.about}</p>${lines(drug)}<p class="small">It's not an emergency line. In a crisis, call NCMH on <b>${ncmh.lines[0][1]}</b>.</p></section>
+      ${c.crisis ? `<section class="card"><h2>Crisis support</h2><p class="small muted">${c.crisis().about}</p>${lines(c.crisis())}${c.crisis().chat ? `<p class="small">${c.crisis().chat}</p>` : ''}</section>` : ''}
+      ${c.directory ? `<section class="card"><h2>Find a help line near you</h2><p class="small muted">${c.directory().about}</p><p>${site(c.directory().site)}</p><p class="small muted">It's a directory, not a help line. If you're in danger, call your local emergency number first.</p></section>` : ''}
+      ${kind('Quit smoking or vaping', c.quit, k => (k.text ? `<p class="small">Or text <b>${k.text[0]}</b> to <span class="num">${k.text[1]}</span>.</p>` : ''))}
+      ${kind('Gambling', c.gambling, k => `<p class="small">${k.chat ? `${k.chat} ` : ''}${k.site ? `Or visit ${site(k.site)}. ` : ''}${notEmergency}</p>`)}
+      ${kind('Drug use', c.drugs, () => `<p class="small">${notEmergency}</p>`)}
       <section class="card"><h2>Alcohol</h2><p>${claim('alcohol.doctor')} Get emergency help right away for: ${claim('alcohol.emergency').join(', ').toLowerCase()}.</p></section>
     </div>
-    <p class="small muted">Numbers checked 30 Oct and 3 Nov 2026 for this demo. Confirm them again before a public launch.</p>`;
+    <p class="small muted">Numbers checked between 30 Oct and 4 Nov 2026. Confirm them again before a public launch.</p>`;
 }
 
 // ---------- events ----------
@@ -638,6 +735,15 @@ function bind() {
   }));
   app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => act(b.dataset.act)));
   app.querySelectorAll('[data-slipfor]').forEach(b => b.addEventListener('click', () => slipFor(b.dataset.slipfor)));
+  const countryForm = document.getElementById('countryForm');
+  if (countryForm) countryForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const code = val('country');
+    if (!COUNTRIES[code]) return;
+    state.country = code; save();
+    if (view.first) { view = afterShortcut(view.then); render(); } else go('help');
+    toast(`Help lines for ${COUNTRIES[code].name}`);
+  });
   const reminderForm = document.getElementById('reminderForm');
   if (reminderForm) reminderForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -710,6 +816,7 @@ function act(a) {
     else { view = { name: 'home', pickSlip: true }; render(); }
   }
   if (a === 'cancelslip') { view = { name: 'home' }; render(); }
+  if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
   if (a === 'delete') {
     if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
     state.habits = state.habits.filter(h => h.id !== view.id); save(); go('home'); toast('Habit deleted');
@@ -717,10 +824,24 @@ function act(a) {
 }
 
 // ---------- start ----------
+// A home-screen shortcut opens ./?checkin=clean or ./?checkin=slip (ADR 0008). Read it once, then tidy the address.
+let shortcut = null;
+try { shortcut = new URLSearchParams(location.search || '').get('checkin'); if (shortcut) history.replaceState(null, '', location.pathname); } catch { /* no shortcut */ }
+function afterShortcut(sc) {
+  if (sc === 'clean' && state.habits.length) return { name: 'home', confirmClean: true };
+  if (sc === 'slip' && state.habits.length) return { name: 'home', pickSlip: true };
+  return { name: 'home' };
+}
 const saved = load();
 if (saved && Array.isArray(saved.habits)) state = { demoOffsetDays: 0, ...saved };
-else { state.habits = exampleHabits(); save(); }
+else if (!IS_SITE) { state.habits = exampleHabits(); save(); } // the claude.ai demo starts with examples
+else state.examples = false;                                      // the installed app starts fresh
+if (IS_SITE && !state.siteFresh) { // once: clear demo examples saved before this rule; real habits are never touched
+  state.habits = state.habits.filter(h => !h.example); state.examples = false; state.demoOffsetDays = 0; state.siteFresh = true; save();
+}
 if (location.hash === '#help') view = { name: 'help' };
+else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
+else view = afterShortcut(shortcut);
 render();
 </script>
 
