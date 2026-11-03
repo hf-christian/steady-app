@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A friendly habit tracker for quitting bad habits. Your data stays on your phone.">
+<meta name="theme-color" content="#1d6d68">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Steady">
+<title>Steady</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: phone = one column; desktop = habit grid + side column, detail screens split in two. Pixel icons drawn from 12x12 grids. */
+:root {
+  --bg: #edf2f3; --surface: #ffffff; --ink: #14252c; --muted: #56686f; --line: #d3dde0;
+  --accent: #1d6d68; --accent-ink: #ffffff; --accent-soft: #d8ebe8;
+  --gold: #a8700f; --gold-soft: #f5e7c6; --warn: #a8432b; --warn-soft: #f7e0d8;
+  --px-ink: #1f2f36; --px-white: #ffffff; --px-teal: #2a9d8f; --px-gold: #e3a52b; --px-red: #d9573b; --px-grey: #a9b7bc; --px-brown: #8a5a2b;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d181c; --surface: #152429; --ink: #e5eef0; --muted: #94a7ad; --line: #26393f;
+  --accent: #5cc0b6; --accent-ink: #062320; --accent-soft: #173a37;
+  --gold: #e8b552; --gold-soft: #3a2e15; --warn: #f0896d; --warn-soft: #3a2019;
+  --px-ink: #0a1316; --px-white: #e3ecee; --px-teal: #4fb9ad; --px-gold: #ecb64a; --px-red: #ec7356; --px-grey: #7f949a; --px-brown: #b98a5a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0d181c; --surface: #152429; --ink: #e5eef0; --muted: #94a7ad; --line: #26393f;
+  --accent: #5cc0b6; --accent-ink: #062320; --accent-soft: #173a37;
+  --gold: #e8b552; --gold-soft: #3a2e15; --warn: #f0896d; --warn-soft: #3a2019;
+  --px-ink: #0a1316; --px-white: #e3ecee; --px-teal: #4fb9ad; --px-gold: #ecb64a; --px-red: #ec7356; --px-grey: #7f949a; --px-brown: #b98a5a; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 1140px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; }
+.view { display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.4rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 0.875rem; }
+.eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+
+/* pixel icons */
+.px { display: block; flex: none; image-rendering: pixelated; }
+.px .k { fill: var(--px-ink); } .px .w { fill: var(--px-white); } .px .a { fill: var(--px-teal); } .px .g { fill: var(--px-gold); }
+.px .r { fill: var(--px-red); } .px .m { fill: var(--px-grey); } .px .n { fill: var(--px-brown); }
+.tile { display: grid; place-items: center; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); flex: none; }
+.tile.lg { width: 64px; height: 64px; } .tile.md { width: 48px; height: 48px; } .tile.sm { width: 40px; height: 40px; border-radius: 10px; }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; }
+.picker button { min-height: 52px; padding: 6px; border-radius: 12px; background: var(--bg); border: 2px solid transparent; }
+.picker button[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.picker button:hover { border-color: var(--line); }
+.picker button[aria-checked="true"]:hover { border-color: var(--accent); }
+fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+legend { font-weight: 700; font-size: 0.95rem; padding: 0; margin-bottom: 8px; }
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+button, .btn { font: inherit; font-weight: 700; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface);
+  color: var(--ink); padding: 10px 16px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ghost { background: transparent; }
+.danger { border-color: var(--warn); color: var(--warn); background: transparent; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.checkin { border-color: var(--accent); background: var(--accent-soft); }
+.checkin h2 { margin: 0; }
+.reminder-form { display: flex; flex-direction: column; gap: 10px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.habit { cursor: pointer; text-align: left; width: 100%; font-weight: 400; border-radius: var(--radius); padding: 20px; align-items: stretch; transition: border-color .15s, transform .15s; }
+.habit:hover { border-color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .habit:hover { transform: translateY(-2px); } }
+.habit-head { display: flex; align-items: center; gap: 12px; width: 100%; }
+.habit-head .brand { flex: 1 1 auto; }
+.tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; align-self: flex-start; }
+.tag.example { background: var(--gold-soft); color: var(--gold); }
+.run { display: flex; align-items: baseline; gap: 8px; }
+.run .big { font-family: var(--display); font-weight: 700; font-size: 3.2rem; line-height: 1; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat b { font-size: 1.1rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; }
+.next { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.next-reward { display: flex; align-items: center; gap: 10px; }
+
+.list { display: flex; flex-direction: column; }
+.item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.item .label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.chip { font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.chip.done { background: var(--gold-soft); color: var(--gold); }
+.chip.todo { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+.chip.claimed { background: var(--accent-soft); color: var(--accent); }
+
+.notice { border-radius: var(--radius); padding: 18px; background: var(--warn-soft); color: var(--ink); display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--warn); }
+.notice h3 { color: var(--warn); }
+.notice ul { margin: 0; padding-left: 20px; }
+.soft { background: var(--accent-soft); border-color: transparent; }
+.soft h3 { color: var(--accent); }
+
+form { display: flex; flex-direction: column; gap: 14px; }
+label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 0.95rem; }
+input, select { font: inherit; font-weight: 400; padding: 11px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); min-height: 44px; width: 100%; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; }
+.check input { width: 22px; min-height: 22px; height: 22px; margin-top: 2px; flex: none; }
+
+.kept { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.kept .stat { background: var(--bg); border-radius: 10px; padding: 12px; }
+.phone { font-family: var(--display); font-size: 1.35rem; font-weight: 700; user-select: all; font-variant-numeric: tabular-nums; }
+.help-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.help-line:first-of-type { border-top: 0; }
+
+.demo { border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top: 6px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg);
+  padding: 10px 18px; border-radius: 999px; font-weight: 700; z-index: 20; max-width: calc(100% - 32px); text-align: center; }
+
+/* screen layouts: stacked on phones */
+.home-grid, .detail-grid, .help-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.narrow { width: 100%; max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.side-add { display: none; }
+
+@media (min-width: 720px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .help-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .wrap { padding-block: 32px 48px; gap: 24px; }
+  .home-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
+  .home-grid .col.side { position: sticky; top: calc(24px + env(safe-area-inset-top, 0px)); }
+  .detail-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px; }
+  .side-add { display: inline-flex; }
+  .mobile-add { display: none; }
+}
+@media (max-width: 380px) { .stats, .kept { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .two { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: no-preference) { .view { animation: rise .22s ease-out; } @keyframes rise { from { transform: translateY(6px); opacity: .6; } to { transform: none; opacity: 1; } } }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// Steady demo. Rules: docs/ddd/habit-tracking.md. Platform: docs/adr/0004-demo-as-mobile-web-page.md.
+const STORE_KEY = 'steady.v1';
+// Every factual claim the app makes, by ID. Each ID has a source row in docs/evidence-map.md,
+// and `npm run app:evidence` checks the two match (ADR 0006). Screens use claim(id), never loose text.
+const CLAIMS = {
+  'milestone.66': 'Many people find things feel more automatic around here. It varies a lot, from 18 to 254 days, so keep going either way.',
+  'slip.research': "In research on building habits, missing one day didn't undo people's progress.",
+  'plan.ifthen': "Plans that name a trigger and what you'll do instead help people follow through.",
+  'alcohol.doctor': 'If you drink heavily or every day, talk to a doctor before you stop.',
+  'alcohol.withdrawal': 'Stopping suddenly can cause alcohol withdrawal, which can quickly become dangerous.',
+  'alcohol.emergency': ['Seizures', 'Fever', 'Severe confusion', "Seeing or hearing things that aren't there", 'An irregular heartbeat'],
+  'drugs.doctor': 'Stopping some substances suddenly, such as sleeping pills or sedatives, can cause dangerous withdrawal, including seizures. Talk to a doctor before you stop.',
+  'drugs.tolerance': "After a break, your body's tolerance drops, so going back to the amount you used before can cause an overdose.",
+  'gambling.tools': 'Blocking apps, self-exclusion and letting someone you trust manage money can help.',
+  'reminder.routine': 'In one study, reminders helped people keep going, but tying a habit to something they already did each day helped it feel automatic. So pick a time right after something you do daily, like dinner.',
+  // Health facts follow time since last use (the current run), not clean days (DDD 7.2). [days, when, what]
+  'health.smoking': { source: 'the CDC', from: 'your last cigarette', items: [
+    [0, 'Within minutes', 'Your heart rate often begins to drop.'],
+    [1, 'After 1 day', 'The nicotine in your blood falls to zero.'],
+    [3, 'After several days', "The carbon monoxide in your blood often returns to a non-smoker's level."],
+    [30, '1 to 12 months', 'Coughing and shortness of breath often ease.'],
+    [365, '1 to 2 years', 'The risk of a heart attack drops sharply.'],
+    [1095, '3 to 6 years', 'On average, the extra risk of heart disease is cut in half.'],
+    [1825, '5 to 10 years', 'On average, the extra risk of mouth, throat and voice box cancers is cut in half, and stroke risk falls.'],
+    [3650, '10 to 15 years', 'On average, the extra risk of lung cancer is cut in half.'],
+    [5475, '15 years', "Heart disease risk comes close to a non-smoker's."],
+  ] },
+  'health.alcohol': { source: 'NSW Health (Australia)', from: 'your last drink', items: [
+    [1, 'After 1 day', 'Alcohol has usually left your body. If you drank every day, you may feel worse at first, which usually passes within about a week.'],
+    [7, 'After 1 week', 'Sleep may improve, with more energy in the morning.'],
+    [30, 'After 1 month', 'Mood often improves within a few weeks, and stomach problems may ease.'],
+    [180, 'After 6 months', 'The liver repairs over time. For moderate drinkers, liver damage may be fully reversed.'],
+    [365, 'After 1 year', 'The risk of heart disease, stroke, type 2 diabetes and several cancers may fall.'],
+  ] },
+  'health.vaping.none': "There's no official timeline yet for how the body recovers after quitting vaping, so Steady doesn't guess. Your clean days and money saved still count.",
+  'help.emergency': '911',
+  'help.ncmh': { about: 'National Center for Mental Health crisis hotline: 24/7 and free', lines: [['Nationwide landline', '1553'], ['Smart / TNT', '0919 057 1553'], ['Globe / TM', '0917 899 8727']] },
+  'help.quitline': { about: 'DOH Quitline: free counselling and a quit plan, for smoking and vaping', lines: [['Call', '1558', 'Toll-free']], text: ['STOPSMOKE', '29290 165364'] },
+  'help.drugs': { about: 'DOH Substance Abuse Helpline: free and confidential support, and referral to treatment, for people who use drugs and their families', lines: [['Call', '1550']] },
+  'help.gambling': { about: 'National Problem Gambling Helpline (PAGCOR and Seagulls Flock): 24/7, free and confidential, for gamblers and their families', lines: [['Call', '(02) 8248 9568']], site: 'https://npgh.ph/' },
+};
+const claim = id => { if (!(id in CLAIMS)) throw new Error(`Unknown claim: ${id}`); return CLAIMS[id]; };
+const MILESTONES = [
+  [1, 'First day done.'],
+  [3, 'Three clean days.'],
+  [7, 'One week of clean days.'],
+  [14, 'Two weeks.'],
+  [30, 'A month of clean days.'],
+  [66, claim('milestone.66')],
+  [90, 'Three months.'],
+  [180, 'Half a year.'],
+  [365, 'A full year of clean days.'],
+];
+const TYPES = {
+  drinking: 'Drinking', smoking: 'Smoking', vaping: 'Vaping', drugs: 'Drug use', gambling: 'Gambling',
+  overeating: 'Overeating', phone: 'Phone use', other: 'Other',
+};
+const CURRENCIES = ['PHP', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'JPY', 'INR'];
+
+// ---------- pixel icons: 12x12 grids. k ink, w white, a teal, g gold, r red, m grey, n brown ----------
+const HABIT_ICONS = {
+  beer: ['Beer', ['............', '..w.ww.w....', '.wwwwwwww...', '.kkkkkkkkk..', '.kggggggk.k.', '.kgwggggk.k.', '.kgwggggk.k.', '.kggggggkkk.', '.kggggggk...', '.kggggggk...', '.kkkkkkkk...', '............']],
+  wine: ['Wine', ['............', '..kkkkkkk...', '..k.....k...', '..krrrrrk...', '..krrrrrk...', '...krrrk....', '....kkk.....', '.....k......', '.....k......', '.....k......', '...kkkkk....', '............']],
+  cigarette: ['Cigarette', ['.........m..', '........m...', '.........m..', '........m...', '............', '............', 'kkkkkkkkkkkk', 'kggwwwwwwwrk', 'kggwwwwwwwrk', 'kkkkkkkkkkkk', '............', '............']],
+  vape: ['Vape', ['..mm..mm....', '.m..mm..m...', '..mm...m....', '.....kk.....', '.....kk.....', '....kaak....', '....kaak....', '....kaak....', '....kwak....', '....kaak....', '....kkkk....', '............']],
+  pill: ['Capsule', ['............', '............', '............', '..kkkkkkkk..', '.krrrrkwwwk.', 'krwrrrkwwwwk', 'krrrrrkwwwwk', '.krrrrkwwwk.', '..kkkkkkkk..', '............', '............', '............']],
+  dice: ['Dice', ['............', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwrrwwwwwk.', '.kwrrwwwwwk.', '.kwwwrrwwwk.', '.kwwwrrwwwk.', '.kwwwwwrrwk.', '.kwwwwwrrwk.', '.kwwwwwwwwk.', '.kkkkkkkkkk.', '............']],
+  phone: ['Phone', ['...kkkkkk...', '...kaaaak...', '...kaaaak...', '...kawaak...', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kwkkwk...', '...kkkkkk...', '............']],
+  gamepad: ['Games', ['............', '............', '..kkkkkkkk..', '.kaaaaaaaak.', 'kaakaaaaraak', 'kakkkaararak', 'kaakaaaaraak', 'kaaaakkaaaak', 'kaaak..kaaak', '.kkk....kkk.', '............', '............']],
+  burger: ['Burger', ['............', '...gggggg...', '..gggggggg..', '.gwgggwgggg.', '.gggggggggg.', '.aaaaaaaaaa.', '.kkkkkkkkkk.', '.rrrrrrrrrr.', '.gggggggggg.', '..gggggggg..', '............', '............']],
+  donut: ['Sweets', ['............', '...kkkkkk...', '..krrrrrrk..', '.krrwrrwrrk.', '.krrrkkrrrk.', '.kggk..kggk.', '.kggk..kggk.', '.kgggkkgggk.', '..kggggggk..', '...kkkkkk...', '............', '............']],
+  soda: ['Soda', ['....kkkk....', '...kmmmmk...', '...krrrrk...', '...krwwrk...', '...krwwrk...', '...krrrrk...', '...krrrrk...', '...krwwrk...', '...krrrrk...', '...kmmmmk...', '....kkkk....', '............']],
+  star: ['Other', ['.....gg.....', '.....gg.....', '....gggg....', 'gggggggggggg', '.gggggggggg.', '..gggggggg..', '...gggggg...', '...gggggg...', '..ggg..ggg..', '..gg....gg..', '.gg......gg.', '............']],
+};
+const REWARD_ICONS = {
+  gift: ['Gift', ['...rr..rr...', '..r..rr..r..', '...rrrrrr...', '.kkkkkkkkkk.', '.kaaarraaak.', '.kkkkkkkkkk.', '..kaarraak..', '..kaarraak..', '..kaarraak..', '..kaarraak..', '..kkkkkkkk..', '............']],
+  shoe: ['Shoes', ['............', '............', '............', '...kkk......', '..kaaak.....', '..kaawak....', '..kaaaakkk..', '.kaaaaaaaak.', '.kaaaaaaaaak', '.kwwwwwwwwwk', '.kkkkkkkkkkk', '............']],
+  plane: ['Trip', ['.....kk.....', '.....aa.....', '.....aa.....', '....kaak....', '..kkaaaakk..', 'kkaaaaaaaakk', 'kaaaaaaaaaak', '.....aa.....', '.....aa.....', '....kaak....', '...kkaakk...', '............']],
+  palm: ['Beach', ['..aaa..aaa..', '.aaaaaaaaaa.', 'aa..aaaa..aa', '.....nn.....', '......n.....', '.....nn.....', '.....n......', '.....nn.....', '....nnn.....', 'gggggggggggg', 'aaaaaaaaaaaa', '............']],
+  ticket: ['Ticket', ['............', '............', 'gggggggggggg', 'gggggggggggg', '.ggkgkkkkkg.', '.gggggggggg.', '.ggkgkkkggg.', 'gggggggggggg', 'gggggggggggg', '............', '............', '............']],
+  film: ['Movie', ['............', 'kwwkkwwkkwwk', 'kkkkkkkkkkkk', 'kmmmmmmmmmmk', 'kmwwmmmmmmmk', 'kmmmmmmmmmmk', 'kmwwwwmmmmmk', 'kmmmmmmmmmmk', 'kkkkkkkkkkkk', '............', '............', '............']],
+  music: ['Music', ['....aaaaaa..', '....aaaaaa..', '....a....a..', '....a....a..', '....a....a..', '....a....a..', '..aaa..aaa..', '.aaaa.aaaa..', '.aaa..aaa...', '............', '............', '............']],
+  book: ['Book', ['............', '.kkkkkkkkk..', '.kaaaaaaakk.', '.kaggggaakwk', '.kaaaaaaakwk', '.kaggggaakwk', '.kaaaaaaakwk', '.kaaaaaaakwk', '.kaaaaaaakwk', '.kaaaaaaakwk', '.kkkkkkkkkkk', '............']],
+  pizza: ['Food', ['............', 'kkkkkkkkkkkk', 'kggggggggggk', '.kgrggggrgk.', '.kggggggggk.', '..kgggrggk..', '..kggggggk..', '...kgrggk...', '...kggggk...', '....kggk....', '.....kk.....', '............']],
+  heart: ['Treat', ['............', '..rrr..rrr..', '.rrrrrrrrrr.', '.rwrrrrrrrr.', '.rrrrrrrrrr.', '..rrrrrrrr..', '...rrrrrr...', '....rrrr....', '.....rr.....', '............', '............', '............']],
+  trophy: ['Trophy', ['..gggggggg..', 'g.gggggggg.g', 'g.gggwgggg.g', '.gggggggggg.', '..gggggggg..', '...gggggg...', '.....gg.....', '.....gg.....', '....gggg....', '...kkkkkk...', '...kkkkkk...', '............']],
+  coins: ['Money', ['............', '............', '............', '..kkkkkkkk..', '.kggggggggk.', '..kkkkkkkk..', '.kggggggggk.', '..kkkkkkkk..', '.kggggggggk.', '..kkkkkkkk..', '............', '............']],
+};
+const TYPE_ICON = { drinking: 'beer', smoking: 'cigarette', vaping: 'vape', drugs: 'pill', gambling: 'dice', overeating: 'burger', phone: 'phone', other: 'star' };
+
+const svgCache = {};
+function pixel(name, size = 32) {
+  const icon = HABIT_ICONS[name] || REWARD_ICONS[name] || HABIT_ICONS.star;
+  const key = `${name}`;
+  if (!svgCache[key]) {
+    // merge each row's runs of the same colour into one rect
+    let rects = '';
+    icon[1].forEach((row, y) => {
+      for (let x = 0; x < row.length;) {
+        const c = row[x]; let end = x + 1;
+        while (end < row.length && row[end] === c) end++;
+        if (c !== '.') rects += `<rect class="${c}" x="${x}" y="${y}" width="${end - x}" height="1"/>`;
+        x = end;
+      }
+    });
+    svgCache[key] = rects;
+  }
+  return `<svg class="px" width="${size}" height="${size}" viewBox="0 0 12 12" shape-rendering="crispEdges" role="img" aria-label="${icon[0]}">${svgCache[key]}</svg>`;
+}
+const habitIcon = h => h.icon || TYPE_ICON[h.type] || 'star';
+const rewardIcon = r => r.icon || 'gift';
+function picker(set, chosen, group) {
+  return `<div class="picker" role="radiogroup">${Object.entries(set).map(([k, [label]]) =>
+    `<button type="button" role="radio" aria-checked="${k === chosen}" aria-label="${label}" title="${label}" data-pick="${group}" data-icon="${k}">${pixel(k, 32)}</button>`).join('')}</div>`;
+}
+
+// ---------- dates (whole local days; demo clock adds an offset) ----------
+const pad = n => String(n).padStart(2, '0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dayNum = key => { const [y, m, d] = key.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000); };
+const addDays = (key, n) => { const t = new Date((dayNum(key) + n) * 86400000); return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`; };
+const todayKey = () => addDays(keyOf(new Date()), state.demoOffsetDays || 0);
+const niceDate = key => new Date(dayNum(key) * 86400000).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+// ---------- progress maths (DDD section 3 and 4) ----------
+function progress(h) {
+  const today = todayKey();
+  const elapsed = Math.max(0, dayNum(today) - dayNum(h.start));
+  const slips = [...new Set(h.slips)].sort();
+  const pastSlips = slips.filter(s => s < today).length; // a slip day stops counting once it's over
+  const clean = Math.max(0, elapsed - pastSlips);
+  const last = slips.length ? slips[slips.length - 1] : h.start;
+  const run = Math.max(0, dayNum(today) - dayNum(last));
+  let longest = 0, prev = h.start;
+  for (const s of slips) { longest = Math.max(longest, dayNum(s) - dayNum(prev)); prev = s; }
+  longest = Math.max(longest, run);
+  const saved = clean * (Number(h.cost) || 0);
+  const next = MILESTONES.find(([d]) => d > clean);
+  const prevM = [...MILESTONES].reverse().find(([d]) => d <= clean);
+  return { clean, run, longest, saved, next, prevM, slipToday: slips.includes(today) };
+}
+const money = (amount, cur) => {
+  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(amount); }
+  catch { return `${cur} ${Math.round(amount)}`; }
+};
+const rewardUnlocked = (r, p) => r.kind === 'money' ? p.saved >= r.target : p.clean >= r.target;
+const rewardGoal = (r, h) => r.kind === 'money' ? `at ${money(r.target, h.currency)} saved` : `at ${r.target} clean day${r.target === 1 ? '' : 's'}`;
+
+// ---------- storage (try/catch: the app still runs if storage is blocked) ----------
+let state = { habits: [], demoOffsetDays: 0, examples: true };
+function load() {
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) return JSON.parse(raw); } catch { /* storage blocked */ }
+  return null;
+}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* keep going in memory */ } }
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+function exampleHabits() {
+  const t = keyOf(new Date());
+  return [
+    { id: uid(), example: true, type: 'smoking', icon: 'cigarette', name: 'Cigarettes', start: addDays(t, -20), slips: [addDays(t, -6)], cost: 150, currency: 'PHP',
+      plan: 'If I finish lunch and want a smoke, then I will walk for five minutes.',
+      rewards: [{ id: uid(), name: 'New running shoes', icon: 'shoe', kind: 'money', target: 3000, claimed: false },
+                { id: uid(), name: 'Weekend trip to Tagaytay', icon: 'plane', kind: 'days', target: 30, claimed: false },
+                { id: uid(), name: 'Nice dinner out', icon: 'pizza', kind: 'days', target: 14, claimed: true }] },
+    { id: uid(), example: true, type: 'phone', icon: 'phone', name: 'Scrolling in bed', start: addDays(t, -6), slips: [], cost: 0, currency: 'PHP',
+      plan: 'If I get into bed, then I will put my phone on the desk and read.',
+      rewards: [{ id: uid(), name: 'Movie night', icon: 'film', kind: 'days', target: 7, claimed: false }] },
+    { id: uid(), example: true, type: 'overeating', icon: 'donut', name: 'Late-night snacks', start: addDays(t, -12), slips: [addDays(t, -9)], cost: 80, currency: 'PHP',
+      plan: '',
+      rewards: [{ id: uid(), name: 'A new book', icon: 'book', kind: 'days', target: 14, claimed: false }] },
+  ];
+}
+
+// ---------- rendering ----------
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let view = { name: 'home' };
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+function go(name, extra = {}) { view = { name, ...extra }; render(); window.scrollTo(0, 0); }
+const habitById = id => state.habits.find(h => h.id === id);
+const footer = `<footer>Steady is a habit support tool, not medical treatment or medical advice. If you think you may be dependent on alcohol or another substance, talk to a doctor.</footer>`;
+
+function render() {
+  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen };
+  app.innerHTML = `<div class="view">${(screens[view.name] || home)()}</div>${footer}`;
+  bind();
+}
+
+const statsBlock = (h, p) => `<div class="stats">
+  <div class="stat"><span class="eyebrow">Clean days</span><b>${p.clean}</b></div>
+  <div class="stat"><span class="eyebrow">Saved</span><b>${h.cost > 0 ? money(p.saved, h.currency) : '—'}</b></div>
+  <div class="stat"><span class="eyebrow">Best run</span><b>${p.longest}</b></div></div>`;
+const runBlock = p => `<div class="run"><span class="big num">${p.run}</span><span class="muted">day${p.run === 1 ? '' : 's'} in this run</span></div>`;
+// Written as direct claim() calls so the evidence check can see each one is used.
+const HEALTH = { smoking: () => claim('health.smoking'), drinking: () => claim('health.alcohol') };
+// "Your body": facts reached so far plus the next two, counted from the last use (DDD 7.2).
+function healthCard(h, p) {
+  if (h.type === 'vaping') return `<section class="card"><h2>Your body</h2><p class="small muted">${claim('health.vaping.none')}</p></section>`;
+  if (!HEALTH[h.type]) return '';
+  const c = HEALTH[h.type]();
+  const reached = c.items.filter(([d]) => p.run >= d), next = c.items.filter(([d]) => p.run < d).slice(0, 2);
+  const row = ([d, when, text]) => {
+    const done = p.run >= d, left = d - p.run;
+    return `<div class="item"><div class="label"><b>${when}</b><span class="small muted">${text}</span></div>
+      <span class="chip ${done ? 'done' : 'todo'}">${done ? 'Reached' : `${left} day${left === 1 ? '' : 's'} to go`}</span></div>`;
+  };
+  return `<section class="card"><h2>Your body</h2>
+    <p class="small muted">Counted from ${c.from}, so it starts again after a slip. Your clean days, milestones and rewards stay. General information from ${c.source}, not medical advice; everyone is different.</p>
+    <div class="list">${[...reached, ...next].map(row).join('')}</div></section>`;
+}
+// ---------- daily check-in and calendar reminder (DDD 7.3, ADR 0005) ----------
+// Kind words only: no facts, no streak pressure. One line a day, picked by the date.
+const CHEER = [
+  'You showed up for yourself today.',
+  'One day at a time is still progress.',
+  'Small steps add up.',
+  "Be as kind to yourself as you'd be to a friend.",
+  'Whatever today was, tomorrow is a fresh start.',
+  'Checking in is a good habit on its own.',
+  "You don't have to do this perfectly. You just have to keep going.",
+];
+const cheerFor = key => CHEER[((dayNum(key) % CHEER.length) + CHEER.length) % CHEER.length];
+const REMINDER_TITLE = 'A minute for yourself? Check in with Steady.';
+// A calendar file with one daily repeating event. Floating local time (no time zone), so it follows the phone.
+function reminderIcs(time, startKey, stamp = new Date()) {
+  const [hh, mm] = (/^\d{2}:\d{2}$/.test(time) ? time : '20:00').split(':');
+  const z = n => String(n).padStart(2, '0');
+  const utc = `${stamp.getUTCFullYear()}${z(stamp.getUTCMonth() + 1)}${z(stamp.getUTCDate())}T${z(stamp.getUTCHours())}${z(stamp.getUTCMinutes())}${z(stamp.getUTCSeconds())}Z`;
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Steady//Daily check-in//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT', `UID:steady-checkin-${utc}@steady.app`, `DTSTAMP:${utc}`,
+    `DTSTART:${startKey.replace(/-/g, '')}T${hh}${mm}00`, 'DURATION:PT5M', 'RRULE:FREQ=DAILY',
+    `SUMMARY:${REMINDER_TITLE.replace(/[,;]/g, m => `\\${m}`)}`, 'TRANSP:TRANSPARENT',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${REMINDER_TITLE.replace(/[,;]/g, m => `\\${m}`)}`, 'TRIGGER:PT0M', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
+}
+function downloadReminder(time) {
+  try {
+    const file = new Blob([reminderIcs(time, keyOf(new Date()))], { type: 'text/calendar' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file); a.download = 'steady-reminder.ics';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    return true;
+  } catch { return false; }
+}
+const realHabits = () => state.habits.filter(h => !h.example);
+function checkinCard() {
+  if (!state.habits.length) return '';
+  const t = todayKey();
+  if (state.checkin === t) return `<section class="card checkin"><span class="eyebrow">Today</span><h2>Checked in.</h2><p class="muted">${cheerFor(t)}</p></section>`;
+  if (view.pickSlip) return `<section class="card checkin"><h2>Which habit?</h2>
+    <div class="row">${state.habits.map(h => `<button data-slipfor="${h.id}">${esc(h.name)}</button>`).join('')}<button class="ghost" data-act="cancelslip">Back</button></div></section>`;
+  return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>How did today go?</h2>
+    <div class="row"><button class="primary" data-act="checkin">Clean day</button><button data-act="checkinslip">I slipped</button></div></section>`;
+}
+function reminderCard() {
+  const phone = state.habits.some(h => h.type === 'phone');
+  return `<section class="card"><h3>Remind me daily</h3>
+    <p class="small muted">Adds a daily event to your phone's calendar. The alert says "${REMINDER_TITLE}" and never names your habit.</p>
+    <p class="small muted">${claim('reminder.routine')}</p>
+    ${phone ? '<p class="small muted">This adds one notification a day. If you\'re cutting down on phone use, you can skip it.</p>' : ''}
+    <form id="reminderForm" class="reminder-form"><label>Time<input id="rTime" type="time" value="${esc(state.reminder?.time || '20:00')}" required></label><button type="submit">Add to my calendar</button></form>
+    ${state.reminder ? `<p class="small muted">You added a reminder for ${esc(state.reminder.time)}. To stop it, delete the event in your calendar.</p>` : '<p class="small muted">To stop it later, delete the event in your calendar.</p>'}
+  </section>`;
+}
+
+const shownType = h => (h.type === 'drugs' ? 'Private' : TYPES[h.type]); // DDD 7.1: drug use stays discreet on screen
+const tagFor = h => `<span class="tag ${h.example ? 'example' : ''}">${h.example ? 'Example' : esc(shownType(h))}</span>`;
+
+function home() {
+  const cards = state.habits.map(h => {
+    const p = progress(h);
+    const nextReward = h.rewards.filter(r => !r.claimed).sort((a, b) => Number(rewardUnlocked(b, p)) - Number(rewardUnlocked(a, p)))[0];
+    const base = p.prevM ? p.prevM[0] : 0;
+    const pct = p.next ? Math.round(((p.clean - base) / (p.next[0] - base)) * 100) : 100;
+    return `<button class="card habit" data-open="${h.id}" aria-label="Open ${esc(h.name)}">
+      <div class="habit-head"><span class="tile md">${pixel(habitIcon(h), 32)}</span>
+        <div class="brand"><h2>${esc(h.name)}</h2><span class="small muted">${esc(shownType(h))}</span></div>${h.example ? tagFor(h) : ''}</div>
+      ${runBlock(p)}${statsBlock(h, p)}
+      <div class="next">
+        <span class="small muted">${p.next ? `Next milestone: <b>${p.next[0]} clean days</b> (${p.next[0] - p.clean} to go)` : 'Every milestone reached'}</span>
+        <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, pct)}%"></i></div>
+        ${nextReward ? `<span class="next-reward small"><span class="tile sm">${pixel(rewardIcon(nextReward), 24)}</span><span>${rewardUnlocked(nextReward, p) ? '<b style="color:var(--gold)">Reward unlocked:</b>' : 'Next reward:'} ${esc(nextReward.name)} <span class="muted">${rewardGoal(nextReward, h)}</span></span></span>` : ''}
+      </div>
+    </button>`;
+  }).join('');
+  return `
+    <header class="top">
+      <div class="brand"><span class="eyebrow">${niceDate(todayKey())}${state.demoOffsetDays ? ` · demo +${state.demoOffsetDays}d` : ''}</span><h1>Steady</h1></div>
+      <div class="row"><button class="ghost" data-go="help">Get help</button><button class="primary side-add" data-go="add">Add a habit</button></div>
+    </header>
+    <div class="home-grid">
+      <div class="col">
+        ${checkinCard()}
+        ${state.habits.length ? `<div class="cards">${cards}</div>` : `<div class="card"><h2>Start with one habit</h2><p class="muted">Add something you want to stop. Steady counts your clean days, your money saved and the rewards you set for yourself.</p></div>`}
+        <button class="primary mobile-add" data-go="add">Add a habit</button>
+      </div>
+      <aside class="col side">
+        <section class="card"><h3>How Steady counts</h3>
+          <p class="small muted">Milestones and rewards use clean days, so a slip never takes one away. Only the current run starts again.</p></section>
+        ${reminderCard()}
+        <section class="demo" aria-label="Demo tools">
+          <span class="eyebrow">Demo tools</span>
+          <p class="small muted">Move the clock forward to show streaks, milestones and rewards without waiting real days.</p>
+          <div class="row">
+            <button data-act="skip">Skip a day</button>
+            ${state.demoOffsetDays ? '<button class="ghost" data-act="resetclock">Back to today</button>' : ''}
+            ${state.habits.some(h => h.example) ? '<button class="ghost" data-act="clearex">Remove examples</button>' : '<button class="ghost" data-act="addex">Load examples</button>'}
+          </div>
+        </section>
+      </aside>
+    </div>`;
+}
+
+function habitScreen() {
+  const h = habitById(view.id); if (!h) return home();
+  const p = progress(h);
+  const milestones = MILESTONES.map(([d, text]) => {
+    const done = p.clean >= d;
+    return `<div class="item"><div class="label"><b class="num">${d} clean day${d === 1 ? '' : 's'}</b><span class="small muted">${esc(text)}</span></div>
+      <span class="chip ${done ? 'done' : 'todo'}">${done ? 'Reached' : `${d - p.clean} to go`}</span></div>`;
+  }).join('');
+  const rewards = h.rewards.map(r => {
+    const unlocked = rewardUnlocked(r, p);
+    const right = r.claimed ? '<span class="chip claimed">Claimed</span>'
+      : unlocked ? `<button class="primary" data-claim="${r.id}">Claim</button>`
+      : `<span class="chip todo">${r.kind === 'money' ? money(Math.max(0, r.target - p.saved), h.currency) : `${Math.max(0, r.target - p.clean)} days`} to go</span>`;
+    return `<div class="item"><span class="tile md">${pixel(rewardIcon(r), 32)}</span><div class="label"><b>${esc(r.name)}</b><span class="small muted">${rewardGoal(r, h)}</span></div>${right}</div>`;
+  }).join('') || '<p class="muted small">No rewards yet. Pick something you would enjoy.</p>';
+  const safety = h.type === 'drinking' ? `<div class="notice"><h3>Before you stop drinking</h3><p>${claim('alcohol.doctor')} ${claim('alcohol.withdrawal')}</p></div>`
+    : h.type === 'drugs' ? `<div class="notice"><h3>Stay safe</h3><p>${claim('drugs.doctor')}</p><p><b>${claim('drugs.tolerance')}</b></p><div class="row"><button data-go="help">See help lines</button></div></div>`
+    : h.type === 'gambling' ? `<div class="notice soft"><h3>Support, not treatment</h3><p>Steady can help you track progress. ${claim('gambling.tools')}</p><div class="row"><button data-go="help">See help lines</button></div></div>` : '';
+  const rIcon = view.rewardIcon || 'gift';
+  return `
+    <header class="top"><button class="ghost" data-go="home">← All habits</button>${tagFor(h)}</header>
+    <div class="detail-grid">
+      <div class="col">
+        <div class="card">
+          <div class="habit-head"><span class="tile lg">${pixel(habitIcon(h), 44)}</span>
+            <div class="brand"><span class="eyebrow">Started ${niceDate(h.start)}</span><h1>${esc(h.name)}</h1></div></div>
+          ${runBlock(p)}${statsBlock(h, p)}
+          ${h.cost > 0 ? `<p class="small muted">Based on your estimate of ${money(h.cost, h.currency)} a day.</p>` : ''}
+          ${p.slipToday ? '<p class="small muted">You logged a slip today. Your new run starts now.</p>' : '<button class="danger" data-act="slip">I slipped today</button>'}
+        </div>
+        ${safety}
+        ${healthCard(h, p)}
+        <section class="card"><h2>Your if-then plan</h2>
+          <p class="small muted">${claim('plan.ifthen')}</p>
+          <form id="planForm"><label>If… then I will…<input id="plan" maxlength="160" value="${esc(h.plan)}" placeholder="If I feel the urge after dinner, then I will call a friend."></label>
+          <div class="row"><button type="submit">Save plan</button></div></form></section>
+        <section class="card"><h2>Change icon</h2>${picker(HABIT_ICONS, habitIcon(h), 'habit')}</section>
+        <div class="row"><button class="ghost danger" data-act="delete">${view.confirmDelete ? 'Tap again to delete this habit' : 'Delete habit'}</button></div>
+      </div>
+      <div class="col">
+        <section class="card"><h2>Rewards you set</h2><div class="list">${rewards}</div>
+          <form id="rewardForm">
+            <label>New reward<input id="rName" required maxlength="60" placeholder="Concert ticket"></label>
+            <div class="two">
+              <label>Unlock by<select id="rKind"><option value="days">Clean days</option><option value="money" ${h.cost > 0 ? '' : 'disabled'}>Money saved</option></select></label>
+              <label>Target<input id="rTarget" type="number" min="1" step="1" required inputmode="numeric" placeholder="30"></label>
+            </div>
+            <fieldset><legend>Reward icon</legend>${picker(REWARD_ICONS, rIcon, 'reward')}</fieldset>
+            <div class="row"><button type="submit" class="primary">Add reward</button></div>
+          </form></section>
+        <section class="card"><h2>Milestones</h2><p class="small muted">Milestones count clean days, so a slip never takes one away.</p><div class="list">${milestones}</div></section>
+      </div>
+    </div>`;
+}
+
+function bounceScreen() {
+  const h = habitById(view.id); if (!h) return home();
+  const p = progress(h);
+  const serious = h.type === 'drinking' || h.type === 'gambling' || h.type === 'drugs';
+  return `<div class="narrow">
+    <div class="card">
+      <div class="habit-head"><span class="tile md">${pixel(habitIcon(h), 32)}</span><span class="eyebrow">${esc(h.name)}</span></div>
+      <h1>A slip is one day, not the whole story.</h1>
+      <p>It's normal to feel bad about it. What matters now is the next choice, and you've already shown you can do this.</p>
+      <div class="kept">
+        <div class="stat"><span class="eyebrow">Clean days kept</span><b>${p.clean}</b></div>
+        <div class="stat"><span class="eyebrow">Money kept</span><b>${h.cost > 0 ? money(p.saved, h.currency) : '—'}</b></div>
+        <div class="stat"><span class="eyebrow">Best run</span><b>${p.longest}</b></div>
+      </div>
+      <p class="small muted">Your milestones and rewards stay. Only the current run starts again today. ${claim('slip.research')}</p>
+      ${HEALTH[h.type] ? "<p class=\"small muted\">Your body's recovery starts again from today. Everything you earned is still yours.</p>" : ''}
+    </div>
+    <section class="card"><h2>What happened just before?</h2>
+      <p>Noticing the trigger helps you plan for it next time.</p>
+      ${h.plan ? `<p class="small">Your plan: <b>${esc(h.plan)}</b></p>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>'}
+    </section>
+    ${h.type === 'drugs' ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${claim('help.emergency')}.</p></div>` : ''}
+    ${serious ? `<div class="notice soft"><h3>If slips keep happening</h3><p>Talking to a professional can help. That's a strong step, not a failure.</p><div class="row"><button data-go="help">See help lines</button></div></div>` : ''}
+    <button class="primary" data-open="${h.id}">Start my new run</button></div>`;
+}
+
+function addScreen() {
+  const d = view.draft || {};
+  const type = d.type || 'drinking';
+  const icon = d.icon || TYPE_ICON[type];
+  const alcohol = type === 'drinking', gambling = type === 'gambling', drugs = type === 'drugs';
+  const namePlaceholder = { drinking: 'Evening beers', smoking: 'Cigarettes', vaping: 'Vape', drugs: 'Habit A' }[type] || 'My habit';
+  return `<div class="narrow">
+    <header class="top"><button class="ghost" data-go="home">← Back</button></header>
+    <h1>Add a habit</h1>
+    <form id="addForm" class="card">
+      <label>What are you stopping?<select id="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <fieldset><legend>Pick an icon</legend>${picker(HABIT_ICONS, icon, 'new')}</fieldset>
+      <label>Give it a name<input id="name" required maxlength="40" value="${esc(d.name || '')}" placeholder="${namePlaceholder}"></label>
+      ${drugs ? '<p class="small muted">Name it anything you like. Your habits stay on this phone, and Steady shows this one as "Private".</p>' : ''}
+      <label>Started on<input id="start" type="date" required value="${esc(d.start || todayKey())}" max="${todayKey()}"></label>
+      <div class="two">
+        <label>Cost per day<input id="cost" type="number" min="0" step="any" inputmode="decimal" value="${esc(d.cost ?? '')}" placeholder="0"></label>
+        <label>Currency<select id="currency">${CURRENCIES.map(c => `<option ${(d.currency || 'PHP') === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      </div>
+      <p class="small muted">Your own rough estimate of what this habit costs a day. Steady uses it for the money-saved counter.</p>
+      <div class="two">
+        <label>First reward<input id="rName" maxlength="60" value="${esc(d.rName || '')}" placeholder="Concert ticket"></label>
+        <label>At clean days<input id="rTarget" type="number" min="1" step="1" inputmode="numeric" value="${esc(d.rTarget || '')}" placeholder="7"></label>
+      </div>
+      ${alcohol ? `<div class="notice" role="alert"><h3>Talk to a doctor first if you drink heavily or every day</h3>
+        <p>${claim('alcohol.withdrawal')} A doctor can help you stop safely.</p>
+        <p><b>Get emergency help right away</b> for any of these:</p>
+        <ul>${claim('alcohol.emergency').map(s => `<li>${s}</li>`).join('')}</ul>
+        <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor if I drink heavily or every day.</label></div>` : ''}
+      ${drugs ? `<div class="notice" role="alert"><h3>Talk to a doctor before you stop</h3>
+        <p>${claim('drugs.doctor')}</p>
+        <p><b>${claim('drugs.tolerance')}</b></p>
+        <p>Steady is a support tool, not treatment. Free, confidential help lines are on the Get help screen.</p>
+        <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor before stopping anything that could cause withdrawal.</label></div>` : ''}
+      ${gambling ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3>
+        <p>${claim('gambling.tools')} The free 24/7 National Problem Gambling Helpline is on the Get help screen. If gambling ever makes you feel hopeless or think about harming yourself, call the NCMH crisis line on <b>${claim('help.ncmh').lines[0][1]}</b> now.</p></div>` : ''}
+      <div class="row"><button class="primary" type="submit">Save habit</button></div>
+    </form></div>`;
+}
+
+function helpScreen() {
+  const line = (label, num, note) => `<div class="help-line"><div class="label"><span class="small muted">${label}</span><span class="phone">${num}</span>${note ? `<span class="small muted">${note}</span>` : ''}</div>
+    <div class="row"><button class="ghost" data-copy="${num}">Copy</button><a class="btn ghost" href="tel:${num.replace(/[^0-9+]/g, '')}">Call</a></div></div>`;
+  const ncmh = claim('help.ncmh'), quit = claim('help.quitline'), gamb = claim('help.gambling'), drug = claim('help.drugs');
+  const lines = c => c.lines.map(l => line(...l)).join('');
+  return `
+    <header class="top"><button class="ghost" data-go="home">← Back</button></header>
+    <div class="brand"><h1>Get help</h1><p class="muted">Free help lines in the Philippines. If you're in danger right now, call ${claim('help.emergency')}.</p></div>
+    <div class="help-grid">
+      <section class="card"><h2>Crisis support</h2><p class="small muted">${ncmh.about}</p>${lines(ncmh)}</section>
+      <section class="card"><h2>Quit smoking or vaping</h2><p class="small muted">${quit.about}</p>
+        ${lines(quit)}<p class="small">Or text <b>${quit.text[0]}</b> to <span class="num">${quit.text[1]}</span>.</p></section>
+      <section class="card"><h2>Gambling</h2><p class="small muted">${gamb.about}</p>
+        ${lines(gamb)}<p class="small">Or message them on Viber, or visit <a href="${gamb.site}" target="_blank" rel="noopener">npgh.ph</a>. It's not an emergency line; in a crisis, call NCMH on <b>${ncmh.lines[0][1]}</b>.</p></section>
+      <section class="card"><h2>Drug use</h2><p class="small muted">${drug.about}</p>${lines(drug)}<p class="small">It's not an emergency line. In a crisis, call NCMH on <b>${ncmh.lines[0][1]}</b>.</p></section>
+      <section class="card"><h2>Alcohol</h2><p>${claim('alcohol.doctor')} Get emergency help right away for: ${claim('alcohol.emergency').join(', ').toLowerCase()}.</p></section>
+    </div>
+    <p class="small muted">Numbers checked 30 Oct and 3 Nov 2026 for this demo. Confirm them again before a public launch.</p>`;
+}
+
+// ---------- events ----------
+function bind() {
+  app.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+  app.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => go('habit', { id: b.dataset.open })));
+  app.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
+    const n = b.dataset.copy;
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(n).then(() => toast(`Copied ${n}`), () => toast(`Number: ${n}`));
+    else toast(`Number: ${n}`);
+  }));
+  app.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', () => {
+    const h = habitById(view.id); const r = h.rewards.find(x => x.id === b.dataset.claim);
+    r.claimed = true; save(); render(); toast(`Enjoy it: ${r.name}`);
+  }));
+  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => act(b.dataset.act)));
+  app.querySelectorAll('[data-slipfor]').forEach(b => b.addEventListener('click', () => slipFor(b.dataset.slipfor)));
+  const reminderForm = document.getElementById('reminderForm');
+  if (reminderForm) reminderForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const time = val('rTime') || '20:00';
+    if (downloadReminder(time)) { state.reminder = { time }; save(); render(); toast('Open the file to add it to your calendar'); }
+    else toast("Couldn't make the calendar file on this device");
+  });
+  app.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
+    const icon = b.dataset.icon, group = b.dataset.pick;
+    // mark the choice in place so typed text in the form isn't lost
+    b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', String(x === b)));
+    if (group === 'habit') { habitById(view.id).icon = icon; save(); render(); toast('Icon changed'); }
+    if (group === 'reward') view.rewardIcon = icon;
+    if (group === 'new') view.draft = { ...(view.draft || {}), icon };
+  }));
+
+  const addForm = document.getElementById('addForm');
+  if (addForm) {
+    const readDraft = () => ({ ...(view.draft || {}), type: val('type'), name: val('name'), start: val('start'), cost: val('cost'), currency: val('currency'),
+      rName: val('rName'), rTarget: val('rTarget'), ack: document.getElementById('ack')?.checked });
+    document.getElementById('type').addEventListener('change', () => {
+      const prev = view.draft || {};
+      const d = readDraft();
+      // follow the type's default icon unless the user picked one themselves
+      if (!prev.icon || prev.icon === TYPE_ICON[prev.type || 'drinking']) d.icon = TYPE_ICON[d.type];
+      if (d.type !== (prev.type || 'drinking')) d.ack = false; // each safety notice is ticked on its own
+      view.draft = d; render();
+    });
+    addForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const d = readDraft();
+      if ((d.type === 'drinking' || d.type === 'drugs') && !d.ack) { toast('Please read and tick the doctor notice first'); return; }
+      const h = { id: uid(), example: false, type: d.type, icon: d.icon || TYPE_ICON[d.type], name: d.name.trim() || TYPES[d.type], start: d.start || todayKey(), slips: [],
+        cost: Math.max(0, Number(d.cost) || 0), currency: d.currency, plan: '', rewards: [] };
+      if (d.rName.trim() && Number(d.rTarget) > 0) h.rewards.push({ id: uid(), name: d.rName.trim(), icon: 'gift', kind: 'days', target: Math.round(Number(d.rTarget)), claimed: false });
+      state.habits.unshift(h); save(); go('habit', { id: h.id }); toast('Habit added');
+    });
+  }
+  const planForm = document.getElementById('planForm');
+  if (planForm) planForm.addEventListener('submit', e => { e.preventDefault(); habitById(view.id).plan = val('plan').trim(); save(); toast('Plan saved'); });
+  const rewardForm = document.getElementById('rewardForm');
+  if (rewardForm) rewardForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const target = Math.round(Number(val('rTarget')));
+    if (!val('rName').trim() || !(target > 0)) return;
+    habitById(view.id).rewards.push({ id: uid(), name: val('rName').trim(), icon: view.rewardIcon || 'gift', kind: val('rKind'), target, claimed: false });
+    view.rewardIcon = 'gift';
+    save(); render(); toast('Reward added');
+  });
+}
+const val = id => document.getElementById(id)?.value ?? '';
+// Log a slip for today (once per day) and show the bounce-back screen. A slip also counts as today's check-in.
+function slipFor(id) {
+  const h = habitById(id); if (!h) return;
+  const t = todayKey();
+  if (!h.slips.includes(t)) h.slips.push(t);
+  state.checkin = t;
+  save(); go('bounce', { id: h.id });
+}
+
+function act(a) {
+  if (a === 'skip') { state.demoOffsetDays = (state.demoOffsetDays || 0) + 1; save(); render(); toast('Demo clock: one day later'); }
+  if (a === 'resetclock') { state.demoOffsetDays = 0; save(); render(); toast('Back to today'); }
+  if (a === 'clearex') { state.habits = state.habits.filter(h => !h.example); state.examples = false; save(); render(); toast('Examples removed'); }
+  if (a === 'addex') { state.habits = [...state.habits, ...exampleHabits()]; state.examples = true; save(); render(); toast('Examples loaded'); }
+  if (a === 'slip') slipFor(view.id);
+  if (a === 'checkin') { state.checkin = todayKey(); save(); render(); }
+  if (a === 'checkinslip') {
+    if (state.habits.length === 1) slipFor(state.habits[0].id);
+    else { view = { name: 'home', pickSlip: true }; render(); }
+  }
+  if (a === 'cancelslip') { view = { name: 'home' }; render(); }
+  if (a === 'delete') {
+    if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
+    state.habits = state.habits.filter(h => h.id !== view.id); save(); go('home'); toast('Habit deleted');
+  }
+}
+
+// ---------- start ----------
+const saved = load();
+if (saved && Array.isArray(saved.habits)) state = { demoOffsetDays: 0, ...saved };
+else { state.habits = exampleHabits(); save(); }
+if (location.hash === '#help') view = { name: 'help' };
+render();
+</script>
+
+<script>
+// Offline support: register the service worker if the browser has one. The app works without it.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
