@@ -87,6 +87,8 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 @media (prefers-reduced-motion: no-preference) { .habit:hover { transform: translateY(-2px); } }
 .habit-head { display: flex; align-items: center; gap: 12px; width: 100%; }
 .habit-head .brand { flex: 1 1 auto; }
+.habit-head .brand button.link { margin-top: 4px; }
+.icon-panel { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; align-self: flex-start; }
 .tag.example { background: var(--gold-soft); color: var(--gold); }
 .run { display: flex; align-items: baseline; gap: 8px; }
@@ -526,13 +528,18 @@ function habitScreen() {
     : h.type === 'drugs' ? `<div class="notice"><h3>Stay safe</h3><p>${claim('drugs.doctor')}</p><p><b>${claim('drugs.tolerance')}</b></p><div class="row"><button data-go="help">See help lines</button></div></div>`
     : h.type === 'gambling' ? `<div class="notice soft"><h3>Support, not treatment</h3><p>Steady can help you track progress. ${claim('gambling.tools')}</p><div class="row"><button data-go="help">See help lines</button></div></div>` : '';
   const rIcon = view.rewardIcon || 'gift';
+  // DDD 7.7: the reward form is open only while there's no reward yet, or after "+ Add another reward"
+  const showRewardForm = !h.rewards.length || view.rewardOpen;
   return `
     <header class="top"><button class="ghost" data-go="home">← All habits</button>${tagFor(h)}</header>
     <div class="detail-grid">
       <div class="col">
         <div class="card">
           <div class="habit-head"><span class="tile lg">${pixel(habitIcon(h), 44)}</span>
-            <div class="brand"><span class="eyebrow">Started ${niceDate(h.start)}</span><h1>${esc(h.name)}</h1></div></div>
+            <div class="brand"><span class="eyebrow">Started ${niceDate(h.start)}</span><h1>${esc(h.name)}</h1>
+              ${view.iconOpen ? '' : '<button class="link small" data-act="iconopen">Change icon</button>'}</div></div>
+          ${view.iconOpen ? `<div class="icon-panel"><p class="small muted">Pick a new icon.</p>${picker(HABIT_ICONS, habitIcon(h), 'habit')}
+            <div class="row"><button class="ghost" data-act="iconclose">Done</button></div></div>` : ''}
           ${runBlock(p)}${statsBlock(h, p)}
           ${h.cost > 0 ? `<p class="small muted">Based on your estimate of ${money(h.cost, h.currency)} a day.</p>` : ''}
           ${p.slipToday ? '<p class="small muted">You logged a slip today. Your new run starts now.</p>' : '<button class="danger" data-act="slip">I slipped today</button>'}
@@ -543,20 +550,19 @@ function habitScreen() {
           <p class="small muted">${claim('plan.ifthen')}</p>
           <form id="planForm"><label>If… then I will…<input id="plan" maxlength="160" value="${esc(h.plan)}" placeholder="If I feel the urge after dinner, then I will call a friend."></label>
           <div class="row"><button type="submit">Save plan</button></div></form></section>
-        <section class="card"><h2>Change icon</h2>${picker(HABIT_ICONS, habitIcon(h), 'habit')}</section>
         <div class="row"><button class="ghost danger" data-act="delete">${view.confirmDelete ? 'Tap again to delete this habit' : 'Delete habit'}</button></div>
       </div>
       <div class="col">
         <section class="card"><h2>Rewards you set</h2><div class="list">${rewards}</div>
-          <form id="rewardForm">
+          ${showRewardForm ? `<form id="rewardForm">
             <label>New reward<input id="rName" required maxlength="60" placeholder="Concert ticket"></label>
             <div class="two">
               <label>Unlock by<select id="rKind"><option value="days">Clean days</option><option value="money" ${h.cost > 0 ? '' : 'disabled'}>Money saved</option></select></label>
               <label>Target<input id="rTarget" type="number" min="1" step="1" required inputmode="numeric" placeholder="30"></label>
             </div>
             <fieldset><legend>Reward icon</legend>${picker(REWARD_ICONS, rIcon, 'reward')}</fieldset>
-            <div class="row"><button type="submit" class="primary">Add reward</button></div>
-          </form></section>
+            <div class="row"><button type="submit" class="primary">Add reward</button>${h.rewards.length ? '<button type="button" class="ghost" data-act="rewardclose">Cancel</button>' : ''}</div>
+          </form>` : '<div class="row"><button data-act="rewardopen">+ Add another reward</button></div>'}</section>
         <section class="card"><h2>Milestones</h2><p class="small muted">Milestones count clean days, so a slip never takes one away.</p><div class="list">${milestones}</div></section>
       </div>
     </div>`;
@@ -755,7 +761,7 @@ function bind() {
     const icon = b.dataset.icon, group = b.dataset.pick;
     // mark the choice in place so typed text in the form isn't lost
     b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', String(x === b)));
-    if (group === 'habit') { habitById(view.id).icon = icon; save(); render(); toast('Icon changed'); }
+    if (group === 'habit') { habitById(view.id).icon = icon; view.iconOpen = false; save(); render(); toast('Icon changed'); }
     if (group === 'reward') view.rewardIcon = icon;
     if (group === 'new') view.draft = { ...(view.draft || {}), icon };
   }));
@@ -790,7 +796,7 @@ function bind() {
     const target = Math.round(Number(val('rTarget')));
     if (!val('rName').trim() || !(target > 0)) return;
     habitById(view.id).rewards.push({ id: uid(), name: val('rName').trim(), icon: view.rewardIcon || 'gift', kind: val('rKind'), target, claimed: false });
-    view.rewardIcon = 'gift';
+    view.rewardIcon = 'gift'; view.rewardOpen = false;
     save(); render(); toast('Reward added');
   });
 }
@@ -817,6 +823,8 @@ function act(a) {
   }
   if (a === 'cancelslip') { view = { name: 'home' }; render(); }
   if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
+  if (a === 'iconopen' || a === 'iconclose') { view.iconOpen = a === 'iconopen'; render(); }
+  if (a === 'rewardopen' || a === 'rewardclose') { view.rewardOpen = a === 'rewardopen'; view.rewardIcon = 'gift'; render(); }
   if (a === 'delete') {
     if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
     state.habits = state.habits.filter(h => h.id !== view.id); save(); go('home'); toast('Habit deleted');
