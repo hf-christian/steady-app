@@ -178,6 +178,9 @@ const CLAIMS = {
   'alcohol.emergency': ['Seizures', 'Fever', 'Severe confusion', "Seeing or hearing things that aren't there", 'An irregular heartbeat'],
   'drugs.doctor': 'Stopping some substances suddenly, such as sleeping pills or sedatives, can cause dangerous withdrawal, including seizures. Talk to a doctor before you stop.',
   'drugs.tolerance': "After a break, your body's tolerance drops, so going back to the amount you used before can cause an overdose.",
+  'cannabis.mild': 'Cannabis withdrawal is usually mild, and the symptoms are typically mostly gone within about three weeks.',
+  'cannabis.doctor': 'For a while you may feel irritable, low or anxious, sleep badly or have less appetite. If you have problems with withdrawal, talk to your doctor or health centre.',
+  'cannabis.support': 'No medicine is approved for cannabis use disorder, but talking therapies such as CBT can help.',
   'gambling.tools': 'Blocking apps, self-exclusion and letting someone you trust manage money can help.',
   'reminder.routine': 'In one study, reminders helped people keep going, but tying a habit to something they already did each day helped it feel automatic. So pick a time right after something you do daily, like dinner.',
   // Health facts follow time since last use (the current run), not clean days (DDD 7.2). [days, when, what]
@@ -198,6 +201,12 @@ const CLAIMS = {
     [30, 'After 1 month', 'Mood often improves within a few weeks, and stomach problems may ease.'],
     [180, 'After 6 months', 'The liver repairs over time. For moderate drinkers, liver damage may be fully reversed.'],
     [365, 'After 1 year', 'The risk of heart disease, stroke, type 2 diabetes and several cancers may fall.'],
+  ] },
+  // Cannabis: no official recovery timeline exists, so this is what to expect while stopping, not a list of health wins (DDD 7.9).
+  'health.cannabis': { source: 'NSW Health (Australia)', from: 'your last use', items: [
+    [1, 'Within 1 to 2 days', 'Withdrawal symptoms often start, such as feeling irritable or low, trouble sleeping and a smaller appetite.'],
+    [2, 'Days 2 to 4', 'Symptoms usually peak around about now.'],
+    [14, 'After about 2 weeks', 'Withdrawal symptoms are usually over, though sleep can take longer to settle.'],
   ] },
   'health.vaping.none': "There's no official timeline yet for how the body recovers after quitting vaping, so Steady doesn't guess. Your clean days and money saved still count.",
   // Help lines by country (ADR 0007). Emergency is a number as text; the others are { name, about, lines: [[label, number, note?]], ... }.
@@ -231,7 +240,7 @@ const MILESTONES = [
   [365, 'A full year of clean days.'],
 ];
 const TYPES = {
-  drinking: 'Drinking', smoking: 'Smoking', vaping: 'Vaping', drugs: 'Drug use', gambling: 'Gambling',
+  drinking: 'Drinking', smoking: 'Smoking', vaping: 'Vaping', drugs: 'Drug use', cannabis: 'Cannabis', gambling: 'Gambling',
   overeating: 'Overeating', phone: 'Phone use', other: 'Other',
 };
 const CURRENCIES = ['PHP', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'JPY', 'INR'];
@@ -242,6 +251,7 @@ const HABIT_ICONS = {
   wine: ['Wine', ['............', '..kkkkkkk...', '..k.....k...', '..krrrrrk...', '..krrrrrk...', '...krrrk....', '....kkk.....', '.....k......', '.....k......', '.....k......', '...kkkkk....', '............']],
   cigarette: ['Cigarette', ['.........m..', '........m...', '.........m..', '........m...', '............', '............', 'kkkkkkkkkkkk', 'kggwwwwwwwrk', 'kggwwwwwwwrk', 'kkkkkkkkkkkk', '............', '............']],
   vape: ['Vape', ['..mm..mm....', '.m..mm..m...', '..mm...m....', '.....kk.....', '.....kk.....', '....kaak....', '....kaak....', '....kaak....', '....kwak....', '....kaak....', '....kkkk....', '............']],
+  leaf: ['Leaf', ['.....aa.....', '.....aa.....', '..a..aa..a..', '..aa.aa.aa..', 'a.aaaaaaaa.a', 'aa.aaaaaa.aa', '.aaaaaaaaaa.', '..aaaaaaaa..', '....aaaa....', '.....nn.....', '.....nn.....', '............']],
   pill: ['Capsule', ['............', '............', '............', '..kkkkkkkk..', '.krrrrkwwwk.', 'krwrrrkwwwwk', 'krrrrrkwwwwk', '.krrrrkwwwk.', '..kkkkkkkk..', '............', '............', '............']],
   dice: ['Dice', ['............', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwrrwwwwwk.', '.kwrrwwwwwk.', '.kwwwrrwwwk.', '.kwwwrrwwwk.', '.kwwwwwrrwk.', '.kwwwwwrrwk.', '.kwwwwwwwwk.', '.kkkkkkkkkk.', '............']],
   phone: ['Phone', ['...kkkkkk...', '...kaaaak...', '...kaaaak...', '...kawaak...', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kwkkwk...', '...kkkkkk...', '............']],
@@ -265,7 +275,7 @@ const REWARD_ICONS = {
   trophy: ['Trophy', ['..gggggggg..', 'g.gggggggg.g', 'g.gggwgggg.g', '.gggggggggg.', '..gggggggg..', '...gggggg...', '.....gg.....', '.....gg.....', '....gggg....', '...kkkkkk...', '...kkkkkk...', '............']],
   coins: ['Money', ['............', '............', '............', '..kkkkkkkk..', '.kggggggggk.', '..kkkkkkkk..', '.kggggggggk.', '..kkkkkkkk..', '.kggggggggk.', '..kkkkkkkk..', '............', '............']],
 };
-const TYPE_ICON = { drinking: 'beer', smoking: 'cigarette', vaping: 'vape', drugs: 'pill', gambling: 'dice', overeating: 'burger', phone: 'phone', other: 'star' };
+const TYPE_ICON = { drinking: 'beer', smoking: 'cigarette', vaping: 'vape', drugs: 'pill', cannabis: 'leaf', gambling: 'dice', overeating: 'burger', phone: 'phone', other: 'star' };
 
 // ---------- if-then plans picked from lists (DDD 7.8) ----------
 // General lists, with no country-specific triggers. Design: DDD 7.8.
@@ -277,6 +287,7 @@ const PLAN_TRIGGERS = {
   smoking: ['I finish a meal', 'I have coffee', 'I feel stressed', 'friends are smoking', "I'm on a break at work", 'I first wake up'],
   vaping: ["I'm bored or waiting", 'I feel stressed', 'friends are vaping', "I'm on a break", "I'm driving or commuting", 'I first wake up'],
   drugs: ['I feel stressed or low', "I'm with people who use", "I'm alone at night", 'I get paid', "I can't sleep", 'I feel a craving'],
+  cannabis: ['I feel stressed or low', "I'm with friends who use", "I'm bored in the evening", "I can't sleep", 'I finish work for the day', 'I feel a craving'],
   gambling: ['I get paid', 'I see an ad or a betting app', 'I feel bored', 'I want to win back losses', "I'm alone with my phone", "there's a big game on"],
   overeating: ["I'm stressed or upset", "I'm watching TV", "I'm bored", "it's late at night", 'I see snacks', 'I skipped a meal'],
   phone: ['I get into bed', 'I wake up', "I'm bored or waiting", "I'm eating", 'I should be working', 'I feel lonely'],
@@ -288,6 +299,7 @@ const PLAN_EXTRA = {
   smoking: ['chew gum or a mint', 'brush my teeth', 'keep my hands busy', 'move away from the smoking area'],
   vaping: ['chew gum or a mint', 'leave my vape at home', 'keep my hands busy'],
   drugs: ['leave the place', 'call someone I trust', 'call a support line (from Get help)'],
+  cannabis: ['leave the place', 'call someone I trust', 'take a shower', 'call a support line (from Get help)'],
   gambling: ['delete or block the app', 'give my card to someone I trust', 'call a support line (from Get help)', 'put the money in savings'],
   overeating: ['eat a planned snack slowly', 'drink water first', 'leave the kitchen', 'do something with my hands'],
   phone: ['charge my phone in another room', 'read a book', 'put the phone face down', 'turn on a focus mode'],
@@ -450,7 +462,7 @@ const statsBlock = (h, p) => `<div class="stats">
   <div class="stat"><span class="eyebrow">Best run</span><b>${p.longest}</b></div></div>`;
 const runBlock = p => `<div class="run"><span class="big num">${p.run}</span><span class="muted">day${p.run === 1 ? '' : 's'} in this run</span></div>`;
 // Written as direct claim() calls so the evidence check can see each one is used.
-const HEALTH = { smoking: () => claim('health.smoking'), drinking: () => claim('health.alcohol') };
+const HEALTH = { smoking: () => claim('health.smoking'), drinking: () => claim('health.alcohol'), cannabis: () => claim('health.cannabis') };
 // "Your body": facts reached so far plus the next two, counted from the last use (DDD 7.2).
 function healthCard(h, p) {
   if (h.type === 'vaping') return `<section class="card"><h2>Your body</h2><p class="small muted">${claim('health.vaping.none')}</p></section>`;
@@ -536,7 +548,8 @@ function reminderCard() {
   </section>`;
 }
 
-const shownType = h => (h.type === 'drugs' ? 'Private' : TYPES[h.type]); // DDD 7.1: drug use stays discreet on screen
+const PRIVATE_TYPES = ['drugs', 'cannabis'];
+const shownType = h => (PRIVATE_TYPES.includes(h.type) ? 'Private' : TYPES[h.type]); // DDD 7.1 and 7.9: stays discreet on screen
 const tagFor = h => `<span class="tag ${h.example ? 'example' : ''}">${h.example ? 'Example' : esc(shownType(h))}</span>`;
 
 function home() {
@@ -602,6 +615,7 @@ function habitScreen() {
   }).join('') || '<p class="muted small">No rewards yet. Pick something you would enjoy.</p>';
   const safety = h.type === 'drinking' ? `<div class="notice"><h3>Before you stop drinking</h3><p>${claim('alcohol.doctor')} ${claim('alcohol.withdrawal')}</p></div>`
     : h.type === 'drugs' ? `<div class="notice"><h3>Stay safe</h3><p>${claim('drugs.doctor')}</p><p><b>${claim('drugs.tolerance')}</b></p><div class="row"><button data-go="help">See help lines</button></div></div>`
+    : h.type === 'cannabis' ? `<div class="notice soft"><h3>Support, not treatment</h3><p>${claim('cannabis.mild')} ${claim('cannabis.doctor')}</p><p>${claim('cannabis.support')}</p><div class="row"><button data-go="help">See help lines</button></div></div>`
     : h.type === 'gambling' ? `<div class="notice soft"><h3>Support, not treatment</h3><p>Steady can help you track progress. ${claim('gambling.tools')}</p><div class="row"><button data-go="help">See help lines</button></div></div>` : '';
   const rIcon = view.rewardIcon || 'gift';
   // DDD 7.7: the reward form is open only while there's no reward yet, or after "+ Add another reward"
@@ -674,7 +688,7 @@ function planCard(h) {
 function bounceScreen() {
   const h = habitById(view.id); if (!h) return home();
   const p = progress(h);
-  const serious = h.type === 'drinking' || h.type === 'gambling' || h.type === 'drugs';
+  const serious = h.type === 'drinking' || h.type === 'gambling' || h.type === 'drugs' || h.type === 'cannabis';
   return `<div class="narrow">
     <div class="card">
       <div class="habit-head"><span class="tile md">${pixel(habitIcon(h), 32)}</span><span class="eyebrow">${esc(h.name)}</span></div>
@@ -704,8 +718,8 @@ function addScreen() {
   const d = view.draft || {};
   const type = d.type || 'drinking';
   const icon = d.icon || TYPE_ICON[type];
-  const alcohol = type === 'drinking', gambling = type === 'gambling', drugs = type === 'drugs';
-  const namePlaceholder = { drinking: 'Evening beers', smoking: 'Cigarettes', vaping: 'Vape', drugs: 'Habit A' }[type] || 'My habit';
+  const alcohol = type === 'drinking', gambling = type === 'gambling', drugs = type === 'drugs', cannabis = type === 'cannabis';
+  const namePlaceholder = { drinking: 'Evening beers', smoking: 'Cigarettes', vaping: 'Vape', drugs: 'Habit A', cannabis: 'Habit A' }[type] || 'My habit';
   return `<div class="narrow">
     <header class="top"><button class="ghost" data-go="home">← Back</button></header>
     <h1>Add a habit</h1>
@@ -713,7 +727,7 @@ function addScreen() {
       <label>What are you stopping?<select id="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <fieldset><legend>Pick an icon</legend>${picker(HABIT_ICONS, icon, 'new')}</fieldset>
       <label>Give it a name<input id="name" required maxlength="40" value="${esc(d.name || '')}" placeholder="${namePlaceholder}"></label>
-      ${drugs ? '<p class="small muted">Name it anything you like. Your habits stay on this phone, and Steady shows this one as "Private".</p>' : ''}
+      ${drugs || cannabis ? '<p class="small muted">Name it anything you like. Your habits stay on this phone, and Steady shows this one as "Private".</p>' : ''}
       <label>Started on<input id="start" type="date" required value="${esc(d.start || todayKey())}" max="${todayKey()}"></label>
       <div class="two">
         <label>Cost per day<input id="cost" type="number" min="0" step="any" inputmode="decimal" value="${esc(d.cost ?? '')}" placeholder="0"></label>
@@ -734,6 +748,7 @@ function addScreen() {
         <p><b>${claim('drugs.tolerance')}</b></p>
         <p>Steady is a support tool, not treatment. Free, confidential help lines are on the Get help screen.</p>
         <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor before stopping anything that could cause withdrawal.</label></div>` : ''}
+      ${cannabis ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3><p>${claim('cannabis.mild')} ${claim('cannabis.doctor')}</p><p>${claim('cannabis.support')}</p><p>Free, confidential help lines are on the Get help screen.</p></div>` : ''}
       ${gambling ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3>
         <p>${claim('gambling.tools')} ${country().gambling ? 'A free gambling help line is' : 'Help lines are'} on the Get help screen. If gambling ever makes you feel hopeless or think about harming yourself, call ${crisisText(country())} now.</p></div>` : ''}
       <div class="row"><button class="primary" type="submit">Save habit</button></div>
