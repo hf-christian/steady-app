@@ -79,6 +79,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .checkin { border-color: var(--accent); background: var(--accent-soft); }
 .checkin h2 { margin: 0; }
 .reminder-form { display: flex; flex-direction: column; gap: 10px; }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
 button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font: inherit; font-weight: 700; cursor: pointer; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -171,6 +172,7 @@ const CLAIMS = {
   'milestone.66': 'Many people find things feel more automatic around here. It varies a lot, from 18 to 254 days, so keep going either way.',
   'slip.research': "In research on building habits, missing one day didn't undo people's progress.",
   'plan.ifthen': "Plans that name a trigger and what you'll do instead help people follow through.",
+  'plan.picked': "In one study of drinking, choosing a ready-made plan from a list worked as well as writing your own. Plans help some people follow through. The effect is modest, so treat a plan as one tool among others.",
   'alcohol.doctor': 'If you drink heavily or every day, talk to a doctor before you stop.',
   'alcohol.withdrawal': 'Stopping suddenly can cause alcohol withdrawal, which can quickly become dangerous.',
   'alcohol.emergency': ['Seizures', 'Fever', 'Severe confusion', "Seeing or hearing things that aren't there", 'An irregular heartbeat'],
@@ -265,6 +267,80 @@ const REWARD_ICONS = {
 };
 const TYPE_ICON = { drinking: 'beer', smoking: 'cigarette', vaping: 'vape', drugs: 'pill', gambling: 'dice', overeating: 'burger', phone: 'phone', other: 'star' };
 
+// ---------- if-then plans picked from lists (DDD 7.8) ----------
+// General lists, with no country-specific triggers. Design: DDD 7.8.
+// The tested lists covered smoking and drinking; the rest are sensible suggestions. No option suggests cutting down drinking by a set amount.
+const MAX_PLANS = 3;
+const OTHER = '__other';
+const PLAN_TRIGGERS = {
+  drinking: ['I get home from work', "it's the weekend", 'friends are drinking', 'I feel stressed or low', "I'm bored at night", "I'm at a party or celebration"],
+  smoking: ['I finish a meal', 'I have coffee', 'I feel stressed', 'friends are smoking', "I'm on a break at work", 'I first wake up'],
+  vaping: ["I'm bored or waiting", 'I feel stressed', 'friends are vaping', "I'm on a break", "I'm driving or commuting", 'I first wake up'],
+  drugs: ['I feel stressed or low', "I'm with people who use", "I'm alone at night", 'I get paid', "I can't sleep", 'I feel a craving'],
+  gambling: ['I get paid', 'I see an ad or a betting app', 'I feel bored', 'I want to win back losses', "I'm alone with my phone", "there's a big game on"],
+  overeating: ["I'm stressed or upset", "I'm watching TV", "I'm bored", "it's late at night", 'I see snacks', 'I skipped a meal'],
+  phone: ['I get into bed', 'I wake up', "I'm bored or waiting", "I'm eating", 'I should be working', 'I feel lonely'],
+  other: ['I feel stressed', 'I feel bored', "I'm alone", "I'm with certain people", "it's a certain time of day", "I'm tired"],
+};
+const PLAN_SHARED = ['drink a glass of water', 'go for a five-minute walk', 'take ten slow breaths', 'text or call a friend', 'wait ten minutes and check in with myself', 'open Steady and look at my progress'];
+const PLAN_EXTRA = {
+  drinking: ['have a soft drink or tea instead', 'leave early', "tell a friend I'm not drinking"],
+  smoking: ['chew gum or a mint', 'brush my teeth', 'keep my hands busy', 'move away from the smoking area'],
+  vaping: ['chew gum or a mint', 'leave my vape at home', 'keep my hands busy'],
+  drugs: ['leave the place', 'call someone I trust', 'call a support line (from Get help)'],
+  gambling: ['delete or block the app', 'give my card to someone I trust', 'call a support line (from Get help)', 'put the money in savings'],
+  overeating: ['eat a planned snack slowly', 'drink water first', 'leave the kitchen', 'do something with my hands'],
+  phone: ['charge my phone in another room', 'read a book', 'put the phone face down', 'turn on a focus mode'],
+  other: ['do something with my hands', 'step outside', 'write down how I feel'],
+};
+const planTriggers = type => PLAN_TRIGGERS[type] || PLAN_TRIGGERS.other;
+const planActions = type => [...(PLAN_EXTRA[type] || PLAN_EXTRA.other), ...PLAN_SHARED]; // the habit's own ideas first
+const tidy = s => String(s || '').trim().replace(/[.\s]+$/, '');
+const planSentence = (t, a) => `If ${tidy(t)}, then I will ${tidy(a)}.`;
+// Plans are stored as [{ trigger, action, text }]. An older single `plan` text moves into the list once.
+function plansOf(h) {
+  if (!Array.isArray(h.plans)) { h.plans = h.plan ? [{ trigger: '', action: '', text: h.plan }] : []; delete h.plan; }
+  return h.plans;
+}
+// The draft in view.planDraft holds { t, a, tOther, aOther }; a value of OTHER means "Something else…" with the typed text.
+function draftParts(d = {}) {
+  return { t: d.t === OTHER ? tidy(d.tOther) : (d.t || ''), a: d.a === OTHER ? tidy(d.aOther) : (d.a || '') };
+}
+// Save the plan being drafted (picked or written). Returns a short message for the toast.
+function submitPlan() {
+  const h = habitById(view.id); if (!h) return '';
+  const plans = plansOf(h);
+  if (plans.length >= MAX_PLANS) return `You already have ${MAX_PLANS} plans`;
+  let plan;
+  if (view.planOwn) {
+    const text = String(view.planOwnText || '').trim();
+    if (!text) return 'Write your plan first';
+    plan = { trigger: '', action: '', text };
+  } else {
+    const { t, a } = draftParts(view.planDraft);
+    if (!t || !a) return 'Choose both parts first';
+    plan = { trigger: t, action: a, text: planSentence(t, a) };
+  }
+  plans.push(plan);
+  view.planOpen = false; view.planOwn = false; view.planDraft = null; view.planOwnText = '';
+  save(); render();
+  return 'Plan saved';
+}
+function removePlan(i) {
+  const h = habitById(view.id); if (!h) return;
+  if (view.confirmPlan !== i) { view.confirmPlan = i; render(); return; }
+  plansOf(h).splice(i, 1); view.confirmPlan = undefined; save(); render(); toast('Plan removed');
+}
+// "Was it one of these?" after a slip: the answer is kept with that day's slip, on this phone only. Tapping it again clears it.
+function setSlipWhy(h, index) {
+  const label = index === 'x' ? 'Something else' : planTriggers(h.type)[Number(index)];
+  if (!label) return;
+  const day = todayKey();
+  h.slipWhy = h.slipWhy || {};
+  if (h.slipWhy[day] === label) delete h.slipWhy[day]; else h.slipWhy[day] = label;
+  save();
+}
+
 const svgCache = {};
 function pixel(name, size = 32) {
   const icon = HABIT_ICONS[name] || REWARD_ICONS[name] || HABIT_ICONS.star;
@@ -336,15 +412,15 @@ function exampleHabits() {
   const t = keyOf(new Date());
   return [
     { id: uid(), example: true, type: 'smoking', icon: 'cigarette', name: 'Cigarettes', start: addDays(t, -20), slips: [addDays(t, -6)], cost: 150, currency: 'PHP',
-      plan: 'If I finish lunch and want a smoke, then I will walk for five minutes.',
+      plans: [{ trigger: 'I finish a meal', action: 'go for a five-minute walk', text: 'If I finish a meal, then I will go for a five-minute walk.' }],
       rewards: [{ id: uid(), name: 'New running shoes', icon: 'shoe', kind: 'money', target: 3000, claimed: false },
                 { id: uid(), name: 'Weekend trip to Tagaytay', icon: 'plane', kind: 'days', target: 30, claimed: false },
                 { id: uid(), name: 'Nice dinner out', icon: 'pizza', kind: 'days', target: 14, claimed: true }] },
     { id: uid(), example: true, type: 'phone', icon: 'phone', name: 'Scrolling in bed', start: addDays(t, -6), slips: [], cost: 0, currency: 'PHP',
-      plan: 'If I get into bed, then I will put my phone on the desk and read.',
+      plans: [{ trigger: 'I get into bed', action: 'read a book', text: 'If I get into bed, then I will read a book.' }],
       rewards: [{ id: uid(), name: 'Movie night', icon: 'film', kind: 'days', target: 7, claimed: false }] },
     { id: uid(), example: true, type: 'overeating', icon: 'donut', name: 'Late-night snacks', start: addDays(t, -12), slips: [addDays(t, -9)], cost: 80, currency: 'PHP',
-      plan: '',
+      plans: [],
       rewards: [{ id: uid(), name: 'A new book', icon: 'book', kind: 'days', target: 14, claimed: false }] },
   ];
 }
@@ -546,10 +622,7 @@ function habitScreen() {
         </div>
         ${safety}
         ${healthCard(h, p)}
-        <section class="card"><h2>Your if-then plan</h2>
-          <p class="small muted">${claim('plan.ifthen')}</p>
-          <form id="planForm"><label>If… then I will…<input id="plan" maxlength="160" value="${esc(h.plan)}" placeholder="If I feel the urge after dinner, then I will call a friend."></label>
-          <div class="row"><button type="submit">Save plan</button></div></form></section>
+        ${planCard(h)}
         <div class="row"><button class="ghost danger" data-act="delete">${view.confirmDelete ? 'Tap again to delete this habit' : 'Delete habit'}</button></div>
       </div>
       <div class="col">
@@ -566,6 +639,36 @@ function habitScreen() {
         <section class="card"><h2>Milestones</h2><p class="small muted">Milestones count clean days, so a slip never takes one away.</p><div class="list">${milestones}</div></section>
       </div>
     </div>`;
+}
+
+// DDD 7.8: the plan picker shows open only while there are no plans, or after "+ Add another plan".
+function planCard(h) {
+  const plans = plansOf(h);
+  const list = plans.map((pl, i) => `<div class="item"><div class="label"><b>${esc(pl.text)}</b></div>
+    <button class="ghost" data-planremove="${i}">${view.confirmPlan === i ? 'Tap again to remove' : 'Remove'}</button></div>`).join('');
+  const full = plans.length >= MAX_PLANS;
+  const open = !full && (!plans.length || view.planOpen);
+  let form = '';
+  if (open && view.planOwn) {
+    form = `<form id="planForm"><label>If… then I will…<input id="planOwn" maxlength="160" value="${esc(view.planOwnText || '')}" placeholder="If I feel the urge after dinner, then I will call a friend."></label>
+      <div class="row"><button type="submit" class="primary">Save plan</button><button type="button" class="ghost" data-act="planlist">Pick from a list instead</button>${plans.length ? '<button type="button" class="ghost" data-act="planclose">Cancel</button>' : ''}</div></form>`;
+  } else if (open) {
+    const d = view.planDraft || {}, { t, a } = draftParts(d);
+    const options = (items, chosen) => `<option value="">Choose…</option>${items.map(x => `<option value="${esc(x)}" ${chosen === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}<option value="${OTHER}" ${chosen === OTHER ? 'selected' : ''}>Something else…</option>`;
+    form = `<form id="planForm">
+      <label>When…<select id="planTrigger">${options(planTriggers(h.type), d.t)}</select></label>
+      ${d.t === OTHER ? `<label>Write the situation<input id="planTriggerOther" maxlength="80" value="${esc(d.tOther || '')}" placeholder="I get a message from…"></label>` : ''}
+      <label>I will…<select id="planAction">${options(planActions(h.type), d.a)}</select></label>
+      ${d.a === OTHER ? `<label>Write what you'll do<input id="planActionOther" maxlength="80" value="${esc(d.aOther || '')}" placeholder="go for a run"></label>` : ''}
+      <p class="small" id="planPreview">${t && a ? `<b>${esc(planSentence(t, a))}</b>` : '<span class="muted">Choose both to see your plan.</span>'}</p>
+      <div class="row"><button type="submit" class="primary">Save plan</button><button type="button" class="ghost" data-act="planown">Write my own plan instead</button>${plans.length ? '<button type="button" class="ghost" data-act="planclose">Cancel</button>' : ''}</div></form>`;
+  }
+  return `<section class="card"><h2>Your if-then plans</h2>
+    <p class="small muted">${claim('plan.ifthen')} ${claim('plan.picked')}</p>
+    ${plans.length ? `<div class="list">${list}</div>` : ''}${form}
+    ${!open && !full ? '<div class="row"><button data-act="planopen">+ Add another plan</button></div>' : ''}
+    ${full ? `<p class="small muted">You have ${MAX_PLANS} plans, which is plenty. Remove one if you'd like to add a different one.</p>` : ''}
+  </section>`;
 }
 
 function bounceScreen() {
@@ -586,8 +689,11 @@ function bounceScreen() {
       ${HEALTH[h.type] ? "<p class=\"small muted\">Your body's recovery starts again from today. Everything you earned is still yours.</p>" : ''}
     </div>
     <section class="card"><h2>What happened just before?</h2>
-      <p>Noticing the trigger helps you plan for it next time.</p>
-      ${h.plan ? `<p class="small">Your plan: <b>${esc(h.plan)}</b></p>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>'}
+      <p>Noticing the trigger helps you plan for it next time. Was it one of these?</p>
+      <div class="row">${[...planTriggers(h.type).map((x, i) => [String(i), x]), ['x', 'Something else']].map(([k, x]) =>
+        `<button type="button" data-why="${k}" aria-pressed="${(h.slipWhy || {})[todayKey()] === x}">${esc(x)}</button>`).join('')}</div>
+      <p class="small muted">Only you see this. It stays on this phone, it's never a score, and you can skip it.</p>
+      ${plansOf(h).length ? `<p class="small">Your plans:</p><ul class="small">${plansOf(h).map(pl => `<li><b>${esc(pl.text)}</b></li>`).join('')}</ul>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>'}
     </section>
     ${h.type === 'drugs' ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${emergencyText(country())}.</p></div>` : ''}
     ${serious ? `<div class="notice soft"><h3>If slips keep happening</h3><p>Talking to a professional can help. That's a strong step, not a failure.</p><div class="row"><button data-go="help">See help lines</button></div></div>` : ''}
@@ -783,13 +889,31 @@ function bind() {
       const d = readDraft();
       if ((d.type === 'drinking' || d.type === 'drugs') && !d.ack) { toast('Please read and tick the doctor notice first'); return; }
       const h = { id: uid(), example: false, type: d.type, icon: d.icon || TYPE_ICON[d.type], name: d.name.trim() || TYPES[d.type], start: d.start || todayKey(), slips: [],
-        cost: Math.max(0, Number(d.cost) || 0), currency: d.currency, plan: '', rewards: [] };
+        cost: Math.max(0, Number(d.cost) || 0), currency: d.currency, plans: [], rewards: [] };
       if (d.rName.trim() && Number(d.rTarget) > 0) h.rewards.push({ id: uid(), name: d.rName.trim(), icon: 'gift', kind: 'days', target: Math.round(Number(d.rTarget)), claimed: false });
       state.habits.unshift(h); save(); go('habit', { id: h.id }); toast('Habit added');
     });
   }
   const planForm = document.getElementById('planForm');
-  if (planForm) planForm.addEventListener('submit', e => { e.preventDefault(); habitById(view.id).plan = val('plan').trim(); save(); toast('Plan saved'); });
+  if (planForm) {
+    // keep what's been chosen or typed in view.planDraft, so a re-render never loses it
+    const readPlan = () => {
+      if (document.getElementById('planOwn')) view.planOwnText = val('planOwn');
+      if (document.getElementById('planTrigger')) view.planDraft = { t: val('planTrigger'), a: val('planAction'), tOther: val('planTriggerOther') || view.planDraft?.tOther || '', aOther: val('planActionOther') || view.planDraft?.aOther || '' };
+    };
+    ['planTrigger', 'planAction'].forEach(id => document.getElementById(id)?.addEventListener('change', () => { readPlan(); render(); }));
+    ['planTriggerOther', 'planActionOther', 'planOwn'].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
+      readPlan();
+      const prev = document.getElementById('planPreview'), { t, a } = draftParts(view.planDraft);
+      if (prev) prev.innerHTML = t && a ? `<b>${esc(planSentence(t, a))}</b>` : '<span class="muted">Choose both to see your plan.</span>';
+    }));
+    planForm.addEventListener('submit', e => { e.preventDefault(); readPlan(); toast(submitPlan()); });
+  }
+  app.querySelectorAll('[data-planremove]').forEach(b => b.addEventListener('click', () => removePlan(Number(b.dataset.planremove))));
+  app.querySelectorAll('[data-why]').forEach(b => b.addEventListener('click', () => {
+    const h = habitById(view.id); if (!h) return;
+    setSlipWhy(h, b.dataset.why); render();
+  }));
   const rewardForm = document.getElementById('rewardForm');
   if (rewardForm) rewardForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -825,6 +949,10 @@ function act(a) {
   if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
   if (a === 'iconopen' || a === 'iconclose') { view.iconOpen = a === 'iconopen'; render(); }
   if (a === 'rewardopen' || a === 'rewardclose') { view.rewardOpen = a === 'rewardopen'; view.rewardIcon = 'gift'; render(); }
+  if (a === 'planopen') { view.planOpen = true; view.planOwn = false; view.planDraft = null; render(); }
+  if (a === 'planclose') { view.planOpen = false; view.planOwn = false; view.planDraft = null; render(); }
+  if (a === 'planown') { view.planOwn = true; render(); }
+  if (a === 'planlist') { view.planOwn = false; render(); }
   if (a === 'delete') {
     if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
     state.habits = state.habits.filter(h => h.id !== view.id); save(); go('home'); toast('Habit deleted');
@@ -847,6 +975,7 @@ else state.examples = false;                                      // the install
 if (IS_SITE && !state.siteFresh) { // once: clear demo examples saved before this rule; real habits are never touched
   state.habits = state.habits.filter(h => !h.example); state.examples = false; state.demoOffsetDays = 0; state.siteFresh = true; save();
 }
+state.habits.forEach(plansOf); // older single-plan habits move into the list (DDD 7.8)
 if (location.hash === '#help') view = { name: 'help' };
 else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
 else view = afterShortcut(shortcut);
