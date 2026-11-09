@@ -222,9 +222,25 @@ const CLAIMS = {
   'help.AU.emergency': 'Triple Zero (000)',
   'help.AU.crisis': { name: 'Lifeline', about: 'Lifeline Australia: crisis support by phone and text. Online chat is available 24/7.', lines: [['Call', '13 11 14'], ['Text', '0477 13 11 14']] },
   'help.CA.emergency': '9-1-1',
-  'help.CA.crisis': { name: '9-8-8', about: '9-8-8 Suicide Crisis Helpline: 24 hours a day, every day of the year', lines: [['Call or text', '9-8-8']] },
+  'help.CA.crisis': { name: 'the Suicide Crisis Helpline', about: '9-8-8 Suicide Crisis Helpline: 24 hours a day, every day of the year', lines: [['Call or text', '9-8-8']] },
   'help.SG.emergency': '995 (ambulance) or 999 (police)',
   'help.SG.crisis': { name: 'SOS', about: 'Samaritans of Singapore (SOS): 24-hour hotline', lines: [['Call', '1767']], chat: 'Or use 24-hour CareText on WhatsApp: 9151 1767.' },
+  // Smoking, gambling and drug lines for the five new countries (researched 2026-11-10). Numbers are written as digits so the Call button works.
+  'help.US.quit': { about: "1-800-QUIT-NOW connects you to your state's quitline: free coaching to quit smoking or vaping. Hours vary by state.", lines: [['Call (1-800-QUIT-NOW)', '1-800-784-8669'], ['En español', '1-855-335-3569']] },
+  'help.US.gambling': { about: 'National Problem Gambling Helpline (1-800-MY-RESET), run by NCPG: call, text or chat, 24/7, free and confidential', lines: [['Call or text', '1-800-697-3738']] },
+  'help.US.drugs': { about: "SAMHSA's National Helpline: free, confidential help and referral to treatment for drug or alcohol use", lines: [['Call', '1-800-662-4357']] },
+  'help.GB.quit': { about: 'Free NHS stop smoking helplines. Each nation has its own. Northern Ireland has no helpline, but you can find local services online.', lines: [['England: Smokefree', '0300 123 1044'], ['Scotland: Quit Your Way', '0800 84 84 84'], ['Wales: Help Me Quit', '0800 085 2219']], site: 'https://www.stopsmokingni.info/', siteLabel: 'stopsmokingni.info (Northern Ireland)' },
+  'help.GB.gambling': { about: 'National Gambling Helpline, run by GamCare: free, 24 hours a day, 7 days a week, for people in Great Britain', lines: [['Call', '0808 8020 133']] },
+  'help.GB.drugs': { about: 'FRANK gives honest advice about drugs, 24/7, for the cost of a normal call. Drinkline is a free, confidential alcohol helpline.', lines: [['FRANK (drugs), 24/7', '0300 123 6600'], ['Drinkline (alcohol)', '0300 123 1110', 'Weekdays 9am to 8pm, weekends 11am to 4pm']] },
+  'help.AU.quit': { about: 'Quitline: free counselling to quit smoking or vaping, including Aboriginal and Torres Strait Islander counsellors. It costs a local call, and hours vary by state.', lines: [['Call (13 QUIT)', '13 7848']] },
+  'help.AU.gambling': { about: 'Gambling Helpline: free and confidential, 24 hours a day, 7 days a week, for anyone affected by gambling', lines: [['Call', '1800 858 858']], chat: 'Gambling Help Online also offers chat counselling.', site: 'https://www.gamblinghelponline.org.au/' },
+  'help.AU.drugs': { about: "National Alcohol and Other Drug Hotline: free and confidential, 24/7 (8.30am to 10pm in South Australia). It connects you to your state's service.", lines: [['Call', '1800 250 015']] },
+  'help.CA.quit': { about: "Free quit coaching for smoking or vaping. This number connects you to your province or territory's quitline.", lines: [['Call', '1-866-366-3667']] },
+  'help.CA.gambling': { about: 'Canada has no national gambling help line. Each province and territory runs its own, and the Responsible Gambling Council lists them all.', lines: [], site: 'https://www.responsiblegambling.org/for-the-public/problem-gambling-help/help-for-canadians/', siteLabel: 'Responsible Gambling Council: help lines by province' },
+  'help.CA.drugs': { about: 'Canada has no single national line for drugs or alcohol. Health Canada lists a help line for every province and territory.', lines: [], site: 'https://www.canada.ca/en/health-canada/services/substance-use/get-help/get-help-problematic-substance-use.html', siteLabel: 'Health Canada: get help with substance use' },
+  'help.SG.quit': { about: "HPB QuitLine: talk to trained Quit Consultants about quitting smoking or vaping. People who come forward on their own for help to quit vaping won't be penalised. Mobile airtime charges apply.", lines: [['Call', '1800 438 2000']] },
+  'help.SG.gambling': { about: 'National Council on Problem Gambling (NCPG) Helpline: every day, 8am to 11pm, for you or someone you know', lines: [['Call', '1800-6-668-668']], chat: 'Webchat is open the same hours.', site: 'https://www.msf.gov.sg/ncpg' },
+  'help.SG.drugs': { about: 'NAMS All Addictions Helpline (6-RECOVER): for alcohol and drug problems, every day, 8.30am to 9pm', lines: [['Call', '6732 6837']] },
   'help.directory': { about: 'Find A Helpline lists free, verified help lines in over 175 countries. It is run by ThroughLine.', site: 'https://findahelpline.com/' },
 };
 const claim = id => { if (!(id in CLAIMS)) throw new Error(`Unknown claim: ${id}`); return CLAIMS[id]; };
@@ -750,7 +766,7 @@ function addScreen() {
         <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor before stopping anything that could cause withdrawal.</label></div>` : ''}
       ${cannabis ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3><p>${claim('cannabis.mild')} ${claim('cannabis.doctor')}</p><p>${claim('cannabis.support')}</p><p>Free, confidential help lines are on the Get help screen.</p></div>` : ''}
       ${gambling ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3>
-        <p>${claim('gambling.tools')} ${country().gambling ? 'A free gambling help line is' : 'Help lines are'} on the Get help screen. If gambling ever makes you feel hopeless or think about harming yourself, call ${crisisText(country())} now.</p></div>` : ''}
+        <p>${claim('gambling.tools')} ${country().gambling ? `Gambling help for ${country().name} is` : 'Help lines are'} on the Get help screen. If gambling ever makes you feel hopeless or think about harming yourself, call ${crisisText(country())} now.</p></div>` : ''}
       <div class="row"><button class="primary" type="submit">Save habit</button></div>
     </form></div>`;
 }
@@ -761,11 +777,16 @@ function addScreen() {
 const COUNTRIES = {
   PH: { name: 'Philippines', currency: 'PHP', emergency: () => claim('help.PH.emergency'), crisis: () => claim('help.PH.crisis'),
         quit: () => claim('help.PH.quit'), gambling: () => claim('help.PH.gambling'), drugs: () => claim('help.PH.drugs') },
-  US: { name: 'United States', currency: 'USD', emergency: () => claim('help.US.emergency'), crisis: () => claim('help.US.crisis') },
-  GB: { name: 'United Kingdom', currency: 'GBP', emergency: () => claim('help.GB.emergency'), crisis: () => claim('help.GB.crisis') },
-  AU: { name: 'Australia', currency: 'AUD', emergency: () => claim('help.AU.emergency'), crisis: () => claim('help.AU.crisis') },
-  CA: { name: 'Canada', currency: 'CAD', emergency: () => claim('help.CA.emergency'), crisis: () => claim('help.CA.crisis') },
-  SG: { name: 'Singapore', currency: 'SGD', emergency: () => claim('help.SG.emergency'), crisis: () => claim('help.SG.crisis') },
+  US: { name: 'United States', currency: 'USD', emergency: () => claim('help.US.emergency'), crisis: () => claim('help.US.crisis'),
+        quit: () => claim('help.US.quit'), gambling: () => claim('help.US.gambling'), drugs: () => claim('help.US.drugs') },
+  GB: { name: 'United Kingdom', currency: 'GBP', emergency: () => claim('help.GB.emergency'), crisis: () => claim('help.GB.crisis'),
+        quit: () => claim('help.GB.quit'), gambling: () => claim('help.GB.gambling'), drugs: () => claim('help.GB.drugs') },
+  AU: { name: 'Australia', currency: 'AUD', emergency: () => claim('help.AU.emergency'), crisis: () => claim('help.AU.crisis'),
+        quit: () => claim('help.AU.quit'), gambling: () => claim('help.AU.gambling'), drugs: () => claim('help.AU.drugs') },
+  CA: { name: 'Canada', currency: 'CAD', emergency: () => claim('help.CA.emergency'), crisis: () => claim('help.CA.crisis'),
+        quit: () => claim('help.CA.quit'), gambling: () => claim('help.CA.gambling'), drugs: () => claim('help.CA.drugs') },
+  SG: { name: 'Singapore', currency: 'SGD', emergency: () => claim('help.SG.emergency'), crisis: () => claim('help.SG.crisis'),
+        quit: () => claim('help.SG.quit'), gambling: () => claim('help.SG.gambling'), drugs: () => claim('help.SG.drugs') },
   XX: { name: 'Somewhere else', currency: 'PHP', directory: () => claim('help.directory') },
 };
 const TZ_COUNTRY = {
@@ -823,8 +844,10 @@ function helpScreen() {
     <div class="row"><button class="ghost" data-copy="${num}">Copy</button><a class="btn ghost" href="tel:${num.replace(/[^0-9+]/g, '')}">Call</a></div></div>`;
   const lines = c => c.lines.map(l => line(...l)).join('');
   const c = country();
-  const site = s => `<a href="${s}" target="_blank" rel="noopener">${s.replace(/^https:\/\/|\/$/g, '')}</a>`;
+  const site = (s, label) => `<a href="${s}" target="_blank" rel="noopener">${label || s.replace(/^https:\/\/(www\.)?|\/$/g, '')}</a>`;
   const notEmergency = `It's not an emergency line. In a crisis, call ${crisisText(c)}.`;
+  // Chat and website, shared by every kind. A card with no numbers (Canada's provincial lists) says "Find your local line".
+  const more = k => `${k.chat ? `${k.chat} ` : ''}${k.site ? `${k.lines.length ? 'Or visit' : 'Find your local line:'} ${site(k.site, k.siteLabel)}. ` : ''}`;
   const kind = (title, get, extra = () => '') => {
     if (!c.crisis) return '';
     if (!get) return `<section class="card"><h2>${title}</h2><p class="small muted">No confirmed line yet for ${c.name}. If you need to talk to someone now, call ${crisisText(c)}.</p></section>`;
@@ -839,12 +862,12 @@ function helpScreen() {
     <div class="help-grid">
       ${c.crisis ? `<section class="card"><h2>Crisis support</h2><p class="small muted">${c.crisis().about}</p>${lines(c.crisis())}${c.crisis().chat ? `<p class="small">${c.crisis().chat}</p>` : ''}</section>` : ''}
       ${c.directory ? `<section class="card"><h2>Find a help line near you</h2><p class="small muted">${c.directory().about}</p><p>${site(c.directory().site)}</p><p class="small muted">It's a directory, not a help line. If you're in danger, call your local emergency number first.</p></section>` : ''}
-      ${kind('Quit smoking or vaping', c.quit, k => (k.text ? `<p class="small">Or text <b>${k.text[0]}</b> to <span class="num">${k.text[1]}</span>.</p>` : ''))}
-      ${kind('Gambling', c.gambling, k => `<p class="small">${k.chat ? `${k.chat} ` : ''}${k.site ? `Or visit ${site(k.site)}. ` : ''}${notEmergency}</p>`)}
-      ${kind('Drug use', c.drugs, () => `<p class="small">${notEmergency}</p>`)}
+      ${kind('Quit smoking or vaping', c.quit, k => `${k.text ? `<p class="small">Or text <b>${k.text[0]}</b> to <span class="num">${k.text[1]}</span>.</p>` : ''}${more(k) ? `<p class="small">${more(k)}</p>` : ''}`)}
+      ${kind('Gambling', c.gambling, k => `<p class="small">${more(k)}${notEmergency}</p>`)}
+      ${kind('Drug use', c.drugs, k => `<p class="small">${more(k)}${notEmergency}</p>`)}
       <section class="card"><h2>Alcohol</h2><p>${claim('alcohol.doctor')} Get emergency help right away for: ${claim('alcohol.emergency').join(', ').toLowerCase()}.</p></section>
     </div>
-    <p class="small muted">Numbers checked between 30 Oct and 4 Nov 2026. Confirm them again before a public launch.</p>`;
+    <p class="small muted">Numbers checked between 30 Oct and 10 Nov 2026. Confirm them again before a public launch.</p>`;
 }
 
 // ---------- events ----------
