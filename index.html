@@ -135,6 +135,9 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .week .day.clean i { background: var(--accent); border-color: var(--accent); }
 .week .day.slip i { background: transparent; border: 2px solid var(--gold); }
 .week .day.today i { background: var(--accent-soft); border: 2px solid var(--accent); }
+.week .day.future i { background: transparent; border: 1.5px dashed color-mix(in srgb, var(--muted) 55%, transparent); }
+.week .day.future small, .week .day.none small { opacity: .6; }
+.week .day.today small { color: var(--ink); }
 .week .day small { font-size: 0.62rem; color: var(--muted); font-weight: 700; line-height: 1; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; background: var(--subtle); border-radius: var(--radius-md); padding: var(--s3) 0; }
 .stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0 var(--s4); }
@@ -678,12 +681,11 @@ function load() {
   return null;
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* keep going in memory */ } }
-// Light or dark: follows the phone until the user taps the switch, then their choice is kept (state.theme).
-const phoneIsDark = () => { try { return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches; } catch { return false; } };
-const isDark = () => (state.theme ? state.theme === 'dark' : phoneIsDark());
+// Light or dark: dark is the default (Mark, 2026-11-11), whatever the phone is set to, until the user taps the switch. Then their choice is kept (state.theme).
+const isDark = () => state.theme !== 'light';
 function applyTheme() {
   const root = document.documentElement; if (!root) return;
-  if (state.theme === 'light' || state.theme === 'dark') root.dataset.theme = state.theme; else delete root.dataset.theme;
+  root.dataset.theme = isDark() ? 'dark' : 'light';
 }
 const themeSwitch = () => `<button class="theme-switch" data-act="theme" role="switch" aria-checked="${isDark()}" aria-label="Dark mode">
   <span class="ico sun">${glyph('sun', 14)}</span><span class="ico moon">${glyph('moon', 14)}</span></button>`;
@@ -732,21 +734,26 @@ const statsBlock = (h, p) => `<div class="stats">
   <div class="stat"><span class="eyebrow">${glyph('piggy-bank', 14)}Saved</span><b>${h.cost > 0 ? money(p.saved, h.currency) : '—'}</b></div>
   <div class="stat"><span class="eyebrow">${glyph('ui:trophy', 14)}Best run</span><b>${p.longest}</b></div></div>`;
 const runBlock = p => `<div class="run"><span class="big num">${p.run}</span><span class="muted">day${p.run === 1 ? '' : 's'} in this run</span></div>`;
-// The last 7 days, oldest first, from the same rules as progress(): before the start is 'none', a slip day is 'slip',
-// an earlier day without a slip is 'clean', and today without a slip is 'today' (still going).
+// This week, Monday to Sunday (Mark, 2026-11-11): the letters stay in place (M T W T F S S) and the dots fill in as the week goes,
+// so progress is easy to see. Same rules as progress(): before the start is 'none', a slip day is 'slip', an earlier day without a
+// slip is 'clean', today without a slip is 'today' (still going), and days still to come are 'future'.
+const WEEK_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const WEEK_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 function weekDays(h) {
   const today = todayKey(), slips = new Set(h.slips);
+  const mondayIndex = (dayNum(today) + 3) % 7; // day 0 (1 Jan 1970) was a Thursday, so Monday = 0
   return Array.from({ length: 7 }, (_, i) => {
-    const key = addDays(today, i - 6);
-    const state = key < h.start ? 'none' : slips.has(key) ? 'slip' : key < today ? 'clean' : 'today';
-    return { key, state };
+    const key = addDays(today, i - mondayIndex);
+    const state = key > today ? 'future' : key < h.start ? 'none' : slips.has(key) ? 'slip' : key < today ? 'clean' : 'today';
+    return { key, state, letter: WEEK_LETTERS[i], name: WEEK_NAMES[i] };
   });
 }
-const DAY_WORD = { none: 'not started', slip: 'slip', clean: 'clean', today: 'today' };
+const DAY_WORD = { none: 'not started', slip: 'slip', clean: 'clean', today: 'today', future: 'still to come' };
 const weekStrip = h => {
   const days = weekDays(h);
-  const label = `Last 7 days: ${days.filter(d => d.state === 'clean').length} clean, ${days.filter(d => d.state === 'slip').length} slip${days.filter(d => d.state === 'slip').length === 1 ? '' : 's'}`;
-  return `<div class="week" role="img" aria-label="${label}">${days.map(d => `<span class="day ${d.state}" title="${niceDate(d.key)}: ${DAY_WORD[d.state]}"><i></i><small>${new Date(dayNum(d.key) * 86400000).toLocaleDateString(undefined, { weekday: 'narrow', timeZone: 'UTC' })}</small></span>`).join('')}</div>`;
+  const slips = days.filter(d => d.state === 'slip').length;
+  const label = `This week, Monday to Sunday: ${days.filter(d => d.state === 'clean').length} clean, ${slips} slip${slips === 1 ? '' : 's'}`;
+  return `<div class="week" role="img" aria-label="${label}">${days.map(d => `<span class="day ${d.state}" title="${d.name}, ${niceDate(d.key)}: ${DAY_WORD[d.state]}"><i></i><small>${d.letter}</small></span>`).join('')}</div>`;
 };
 // Written as direct claim() calls so the evidence check can see each one is used.
 const HEALTH = { smoking: () => claim('health.smoking'), drinking: () => claim('health.alcohol'), cannabis: () => claim('health.cannabis') };
