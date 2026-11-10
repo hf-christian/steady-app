@@ -151,6 +151,8 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .item { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .item:first-child { border-top: 0; }
 .item .label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.item.tip .label { gap: 4px; }
+.tip a { color: var(--accent); font-weight: 700; text-underline-offset: 3px; }
 .chip { font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: var(--pill); white-space: nowrap; }
 .chip.done { background: var(--gold-soft); color: var(--gold); }
 .chip.todo { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
@@ -369,6 +371,98 @@ const CLAIMS = {
   'help.directory': { about: 'Find A Helpline lists free, verified help lines in over 175 countries. It is run by ThroughLine.', site: 'https://findahelpline.com/' },
 };
 const claim = id => { if (!(id in CLAIMS)) throw new Error(`Unknown claim: ${id}`); return CLAIMS[id]; };
+// Coping tips per habit (ADR 0010, DDD 8.1). Paraphrased from official pages Claude opened and checked;
+// research and all sources: docs/research/triggers-and-tips-2026-11.md. Each ID has a row in docs/evidence-map.md.
+// `source` is the page shown in the app (the main one when several pages agree). `general: true` = a general urge tip
+// shown for a habit with no habit-specific official tips (cannabis), labelled "General tip".
+const SRC = {
+  nhsSmoke: ['NHS', 'https://www.nhs.uk/better-health/quit-smoking/staying-smoke-free/understand-your-smoking-triggers-and-cravings/'],
+  sfSmoke: ['Smokefree.gov', 'https://smokefree.gov/challenges-when-quitting/cravings-triggers/know-your-triggers'],
+  cdcSmoke: ['CDC', 'https://www.cdc.gov/tobacco/campaign/tips/quit-smoking/tips-for-quitting/index.html'],
+  sfVapeTriggers: ['Smokefree.gov', 'https://smokefree.gov/quit-vaping-resources/know-your-vaping-triggers'],
+  sfVapeCravings: ['Smokefree.gov', 'https://smokefree.gov/quit-vaping-resources/dealing-with-vape-cravings'],
+  nhsVape: ['NHS', 'https://www.nhs.uk/better-health/quit-smoking/ready-to-quit-smoking/vaping-to-quit-smoking/how-to-quit-vaping/'],
+  auVape: ['Australian Government', 'https://www.health.gov.au/topics/smoking-vaping-and-tobacco/how-to-quit/coping'],
+  niaaaCravings: ['NIAAA', 'https://rethinkingdrinking.niaaa.nih.gov/tools/worksheets-more/how-stop-alcohol-cravings'],
+  niaaaTips: ['NIAAA', 'https://rethinkingdrinking.niaaa.nih.gov/thinking-about-change/tips-try'],
+  nhsAlcohol: ['NHS', 'https://www.nhs.uk/live-well/alcohol-advice/tips-on-cutting-down-alcohol/'],
+  nhsGambling: ['NHS', 'https://www.nhs.uk/live-well/addiction-support/gambling-addiction/'],
+  nhsEMGambling: ['NHS gambling service', 'https://www.eastmidlandsgambling.nhs.uk/help-and-support/self-help'],
+  qldGambling: ['Gambling Help Queensland', 'https://gamblinghelpqld.org.au/self-help/'],
+  mlpDrugs: ['MedlinePlus', 'https://medlineplus.gov/ency/patientinstructions/000798.htm'],
+  nhsDerbyDrugs: ['NHS drug and alcohol service', 'https://derbydrugandalcohol.nhs.uk/self-help/withdrawal-drugs'],
+  auDrugs: ['Australian Government', 'https://www.health.gov.au/topics/drugs/about-drugs/how-to-reduce-or-quit-drugs'],
+  mlpEmotional: ['MedlinePlus', 'https://medlineplus.gov/ency/patientinstructions/000808.htm'],
+  mlpEating: ['MedlinePlus', 'https://medlineplus.gov/ency/patientinstructions/000349.htm'],
+  nhsCamEating: ['NHS', 'https://www.cuh.nhs.uk/patient-information/a-brief-guide-to-tackling-emotional-eating/'],
+  mlpScreens: ['MedlinePlus', 'https://magazine.medlineplus.gov/article/7-tips-for-managing-screen-use'],
+  eSafety: ['eSafety Commissioner', 'https://www.esafety.gov.au/key-topics/digital-wellbeing/manage-your-screen-time'],
+};
+const TIPS = [
+  ['smoking', 'tip.smoking.wait', 'Cravings usually pass in a few minutes. Have something ready to do until it fades.', 'nhsSmoke'],
+  ['smoking', 'tip.smoking.breathe', 'Try 4-5-6 breathing: in through your nose for 4, hold for 5, out through your mouth for 6.', 'nhsSmoke'],
+  ['smoking', 'tip.smoking.routine', 'Shake up the routines tied to smoking. Have coffee at a different time, take your break somewhere new, or brush your teeth right after eating.', 'nhsSmoke'],
+  ['smoking', 'tip.smoking.hands', 'Keep your hands and mouth busy, for example with sugar-free gum or a straw.', 'sfSmoke'],
+  ['smoking', 'tip.smoking.clear', 'Get rid of cigarettes, lighters and ashtrays at home, in the car and at work.', 'cdcSmoke'],
+  ['smoking', 'tip.smoking.drinks', "In the early weeks, think about choosing non-alcoholic drinks when you're out. Drinking is a common trigger.", 'nhsSmoke'],
+  ['smoking', 'tip.smoking.talkback', 'Notice what the urge is telling you, like "I deserve one", and answer it with your own reason to stay quit.', 'cdcSmoke'],
+  ['smoking', 'tip.smoking.support', "Tell friends and family you've quit, and ask them for support and not to smoke around you.", 'sfSmoke'],
+  ['vaping', 'tip.vaping.delay', 'Hold off for a few minutes and the craving should ease. Take three long, slow breaths, or sip some water slowly.', 'auVape'],
+  ['vaping', 'tip.vaping.switch', 'When a craving hits, stop and do something different, like a quick walk or a few flights of stairs.', 'sfVapeCravings'],
+  ['vaping', 'tip.vaping.clear', "Throw out your vapes, pods and chargers so they aren't there to reach for.", 'sfVapeTriggers'],
+  ['vaping', 'tip.vaping.feed', 'Unfollow vaping accounts and unsubscribe from vape shop emails.', 'sfVapeTriggers'],
+  ['vaping', 'tip.vaping.no', 'Have a short answer ready for when someone offers you one, like "No thanks, I quit."', 'sfVapeTriggers'],
+  ['vaping', 'tip.vaping.zones', "Pick places or times where you won't vape, like at work or in certain rooms at home.", 'nhsVape'],
+  ['vaping', 'tip.vaping.stretch', "If you're cutting down first, stretch the time between vapes a little at a time, and only when you feel ready.", 'nhsVape'],
+  ['vaping', 'tip.vaping.buddy', "If you know someone else who's quitting, team up and check in with each other.", 'nhsVape'],
+  ['drinking', 'tip.alcohol.wave', "Urges are short and come in waves. If you don't act on one, it peaks and then passes.", 'niaaaCravings'],
+  ['drinking', 'tip.alcohol.reasons', 'When an urge comes, remind yourself why you want to change.', 'niaaaCravings'],
+  ['drinking', 'tip.alcohol.home', 'Keep little or no alcohol at home.', 'niaaaCravings'],
+  ['drinking', 'tip.alcohol.no', 'Have a polite, convincing "No, thanks" ready for when someone offers you a drink.', 'niaaaTips'],
+  ['drinking', 'tip.alcohol.exit', "Plan ahead how you'll leave a tempting situation quickly and gracefully.", 'niaaaCravings'],
+  ['drinking', 'tip.alcohol.limit', "If you're cutting down, set a limit before you start and bring only a set amount of money.", 'nhsAlcohol'],
+  ['drinking', 'tip.alcohol.freedays', "If you're cutting down, plan several drink-free days each week.", 'nhsAlcohol'],
+  ['drinking', 'tip.alcohol.eat', "If you're cutting down, eat something and have a glass of water before you drink.", 'nhsAlcohol'],
+  ['gambling', 'tip.gambling.delay', "Wait at least 15 minutes before you decide anything. Urges rise and fall like waves, so if it's still strong, wait again.", 'qldGambling'],
+  ['gambling', 'tip.gambling.breathe', 'Take a few slow, deep breaths and bring your reasons for stopping to mind.', 'nhsEMGambling'],
+  ['gambling', 'tip.gambling.block', 'Delete gambling apps, block gambling sites, remove saved card details, and look into self-exclusion.', 'qldGambling'],
+  ['gambling', 'tip.gambling.thoughts', 'Notice thoughts like "a win is due" or "I can control this", and check them against the facts.', 'nhsEMGambling'],
+  ['gambling', 'tip.gambling.bank', "Ask your bank to block payments to gambling sites and apps, and don't take credit cards with you when you might gamble.", 'nhsGambling'],
+  ['gambling', 'tip.gambling.billsfirst', 'Pay important bills on payday, before anything else.', 'nhsGambling'],
+  ['gambling', 'tip.gambling.route', "Change your route so you don't pass betting shops or venues, and plan outings that don't involve gambling.", 'nhsEMGambling'],
+  ['gambling', 'tip.gambling.talk', "Talk to someone you trust about what's going on.", 'nhsGambling'],
+  ['cannabis', 'tip.cannabis.general.wave', "Urges come in waves. If you don't act on one, it peaks and then passes.", 'niaaaCravings', true],
+  ['cannabis', 'tip.cannabis.general.delay', 'Put off the decision, even for a short while, and do something else in the meantime.', 'nhsEMGambling', true],
+  ['cannabis', 'tip.cannabis.general.breathe', 'Breathe in slowly through your nose and out through your mouth, a few times over.', 'sfVapeCravings', true],
+  ['cannabis', 'tip.cannabis.general.reasons', 'When an urge comes, remind yourself why you want to change.', 'niaaaCravings', true],
+  ['cannabis', 'tip.cannabis.general.people', "Talk to someone you trust about what's going on.", 'nhsGambling', true],
+  ['drugs', 'tip.druguse.people', 'Think about not seeing friends who are still using, at least for now.', 'mlpDrugs'],
+  ['drugs', 'tip.druguse.triggers', 'Notice the places, things and feelings that make you want to use, and steer around them where you can.', 'mlpDrugs'],
+  ['drugs', 'tip.druguse.newthings', 'Find new activities and goals to fill the time that used to go to using.', 'mlpDrugs'],
+  ['drugs', 'tip.druguse.reconnect', 'Spend time with family and friends you may have drifted from.', 'mlpDrugs'],
+  ['drugs', 'tip.druguse.alcohol', 'Go easy on alcohol, or skip it, since drinking can lead to using.', 'nhsDerbyDrugs'],
+  ['drugs', 'tip.druguse.move', 'Light exercise, meditation or mindfulness can help when cravings come.', 'nhsDerbyDrugs'],
+  ['drugs', 'tip.druguse.reward', 'Reward progress with something enjoyable and drug-free, like a film or planning a trip. Go easy on yourself if you slip.', 'auDrugs'],
+  ['drugs', 'tip.druguse.tell', "Tell friends and family you're quitting so they can help.", 'auDrugs'],
+  ['overeating', 'tip.overeating.surf', 'When an urge hits, put off eating for a bit. Rate the urge out of 10 every few minutes and watch it ease.', 'nhsCamEating'],
+  ['overeating', 'tip.overeating.notice', 'Keep a short diary of when you eat, how you feel and why, to spot the moods and moments behind it.', 'nhsCamEating'],
+  ['overeating', 'tip.overeating.nonfood', 'Keep a short list of non-food things to do when stressed or bored, like a walk, a call to a friend or a puzzle.', 'mlpEmotional'],
+  ['overeating', 'tip.overeating.reach', 'Keep tempting snacks out of the house, or out of sight and hard to reach.', 'mlpEating'],
+  ['overeating', 'tip.overeating.plate', 'Serve a portion onto a plate or bowl instead of eating from the bag.', 'mlpEating'],
+  ['overeating', 'tip.overeating.slow', 'Eat slowly and away from screens. Put your fork down between bites.', 'mlpEmotional'],
+  ['overeating', 'tip.overeating.nomeal', "Try not to skip meals, and plan dinner early in the day, so you don't arrive hungry and tired.", 'mlpEating'],
+  ['overeating', 'tip.overeating.kind', 'Name the feeling, and answer yourself the way a kind friend would.', 'nhsCamEating'],
+  ['phone', 'tip.phone.notifications', 'Turn off notifications for the apps that pull you back in most.', 'eSafety'],
+  ['phone', 'tip.phone.timers', "Use your phone's own screen-time settings to see how long you spend on apps and set daily limits.", 'eSafety'],
+  ['phone', 'tip.phone.outofsight', "Leave the phone in another room, or somewhere you can't see it, for a while each day.", 'eSafety'],
+  ['phone', 'tip.phone.tellpeople', "Let people know when you won't be checking your phone, so they don't expect an instant reply.", 'eSafety'],
+  ['phone', 'tip.phone.bedroom', 'Charge your phone outside the bedroom.', 'mlpScreens'],
+  ['phone', 'tip.phone.bedtime', 'Put screens away about an hour before bed.', 'mlpScreens'],
+  ['phone', 'tip.phone.meals', 'Keep meals and time with family phone-free.', 'mlpScreens'],
+  ['phone', 'tip.phone.boredom', 'When you reach for the phone out of boredom, have something else ready, like a walk, a book or a hobby.', 'mlpScreens'],
+].map(([habit, id, text, src, general]) => ({ habit, id, text, source: SRC[src][0], url: SRC[src][1], checked: '2026-11-11', general: !!general }));
+const tipsFor = type => TIPS.filter(t => t.habit === type);
+const TIPS_SHOWN = 3; // DDD 8.1: the first few show; the rest sit behind "Show all"
 const MILESTONES = [
   [1, 'First day done.'],
   [3, 'Three clean days.'],
@@ -904,6 +998,7 @@ function habitScreen() {
         </div>
         ${safety}
         ${healthCard(h, p)}
+        ${tipsCard(h)}
         ${planCard(h)}
         <div class="row"><button class="ghost danger" data-act="delete">${view.confirmDelete ? 'Tap again to delete this habit' : 'Delete habit'}</button></div>
       </div>
@@ -921,6 +1016,22 @@ function habitScreen() {
         <section class="card"><h2>Milestones</h2><p class="small muted">Milestones count clean days, so a slip never takes one away.</p><div class="list">${milestones}</div></section>
       </div>
     </div>`;
+}
+
+// DDD 8.1 / ADR 0010: coping tips, each with its source and the date Claude checked it, linking to the page.
+function tipsCard(h) {
+  const all = tipsFor(h.type);
+  if (!all.length) return '';
+  const shown = view.tipsAll ? all : all.slice(0, TIPS_SHOWN);
+  const general = all.some(t => t.general);
+  const items = shown.map(t => `<div class="item tip"><div class="label">
+      ${t.general ? '<span class="eyebrow">General tip</span>' : ''}<span>${esc(t.text)}</span>
+      <span class="small muted">Source: <a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.source)}</a> · checked ${niceDate(t.checked)}</span></div></div>`).join('');
+  return `<section class="card"><h2>Tips</h2>
+    <p class="small muted">${general ? 'Official sources have few tips for this habit yet, so these general tips come from official advice about other urges. ' : ''}Ideas from official health sources. They're support, not treatment.</p>
+    <div class="list">${items}</div>
+    ${all.length > TIPS_SHOWN ? `<div class="row"><button data-act="${view.tipsAll ? 'tipsless' : 'tipsall'}">${view.tipsAll ? 'Show fewer tips' : `Show all ${all.length} tips`}</button></div>` : ''}
+  </section>`;
 }
 
 // DDD 7.8: the plan picker shows open only while there are no plans, or after "+ Add another plan".
@@ -1272,6 +1383,7 @@ function act(a) {
   if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
   if (a === 'iconopen' || a === 'iconclose') { view.iconOpen = a === 'iconopen'; render(); }
   if (a === 'rewardopen' || a === 'rewardclose') { view.rewardOpen = a === 'rewardopen'; view.rewardIcon = 'gift'; render(); }
+  if (a === 'tipsall' || a === 'tipsless') { view.tipsAll = a === 'tipsall'; render(); }
   if (a === 'planopen') { view.planOpen = true; view.planOwn = false; view.planDraft = null; render(); }
   if (a === 'planclose') { view.planOpen = false; view.planOwn = false; view.planDraft = null; render(); }
   if (a === 'planown') { view.planOwn = true; render(); }
