@@ -16,130 +16,238 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap">
 <style>
-/* Layout: phone = one column; desktop = habit grid + side column, detail screens split in two. Pixel icons drawn from 12x12 grids. */
+/* Design system: Steady premium wellness (Mark's brief, 2026-11-10). Tokens first, then components. Same class names as before. */
 :root {
-  --bg: #edf2f3; --surface: #ffffff; --ink: #14252c; --muted: #56686f; --line: #d3dde0;
-  --accent: #1d6d68; --accent-ink: #ffffff; --accent-soft: #d8ebe8;
-  --gold: #a8700f; --gold-soft: #f5e7c6; --warn: #a8432b; --warn-soft: #f7e0d8;
-  --px-ink: #1f2f36; --px-white: #ffffff; --px-teal: #2a9d8f; --px-gold: #e3a52b; --px-red: #d9573b; --px-grey: #a9b7bc; --px-brown: #8a5a2b;
+  /* colour: forest green brand, sage highlights, muted coral only for help */
+  --bg: #f5f7f4; --surface: #ffffff; --subtle: #edf2ee; --ink: #25352f; --muted: #6a7a72; --line: #e4eae5;
+  --accent: #245b4a; --accent-ink: #ffffff; --accent-soft: #dcebe2;
+  --gold: #9a6b1e; --gold-soft: #f4ead3; --warn: #a2582b; --warn-soft: #f6e8dc;
+  --help: #b4553f; --help-soft: #f8e8e3; --help-ink: #ffffff; --help-text: #9a4431;
+  --px-ink: #1f2f2a; --px-white: #ffffff; --px-teal: #3e8f74; --px-gold: #e0a43a; --px-red: #d2614a; --px-grey: #a9b6b0; --px-brown: #8a5a2b;
+  --mood-1: #e7ebf1; --mood-2: #eeeaf3; --mood-3: #eef0ea; --mood-4: #e2efe6; --mood-5: #f6eedb;
+  --shadow-sm: 0 1px 2px rgb(30 50 40 / 0.04), 0 2px 8px rgb(30 50 40 / 0.05);
+  --shadow-md: 0 2px 6px rgb(30 50 40 / 0.06), 0 10px 28px rgb(30 50 40 / 0.08);
+  /* type */
   --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --radius: 14px;
+  /* shape and space */
+  --radius: 20px; --radius-md: 14px; --radius-sm: 10px; --pill: 999px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s7: 32px;
+  --control: 44px; --ease: cubic-bezier(.2, .7, .2, 1);
+  /* every card: a soft sage wash at the top fading into the surface (Mark, 2026-11-11). Fixed length, so short and tall cards match. */
+  --card-bg: linear-gradient(180deg, var(--accent-soft) 0px, var(--surface) 240px);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0d181c; --surface: #152429; --ink: #e5eef0; --muted: #94a7ad; --line: #26393f;
-  --accent: #5cc0b6; --accent-ink: #062320; --accent-soft: #173a37;
-  --gold: #e8b552; --gold-soft: #3a2e15; --warn: #f0896d; --warn-soft: #3a2019;
-  --px-ink: #0a1316; --px-white: #e3ecee; --px-teal: #4fb9ad; --px-gold: #ecb64a; --px-red: #ec7356; --px-grey: #7f949a; --px-brown: #b98a5a; color-scheme: dark } }
+  --bg: #0f1613; --surface: #17211c; --subtle: #131c18; --ink: #e4ece7; --muted: #9cada4; --line: #26332d;
+  --accent: #8ccbb0; --accent-ink: #0c1f18; --accent-soft: #1e332a;
+  --gold: #e2b866; --gold-soft: #3a311b; --warn: #e0a36f; --warn-soft: #362818;
+  --help: #e8957f; --help-soft: #34221d; --help-ink: #2a120b; --help-text: #eea08c;
+  --px-ink: #0a120e; --px-white: #e3ece7; --px-teal: #6dbf9c; --px-gold: #eab654; --px-red: #e87a62; --px-grey: #7f928a; --px-brown: #b98a5a;
+  --mood-1: #1d232c; --mood-2: #241f2c; --mood-3: #1f2520; --mood-4: #1b2b22; --mood-5: #2c2718;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25); --shadow-md: 0 6px 24px rgb(0 0 0 / 0.35); color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #0d181c; --surface: #152429; --ink: #e5eef0; --muted: #94a7ad; --line: #26393f;
-  --accent: #5cc0b6; --accent-ink: #062320; --accent-soft: #173a37;
-  --gold: #e8b552; --gold-soft: #3a2e15; --warn: #f0896d; --warn-soft: #3a2019;
-  --px-ink: #0a1316; --px-white: #e3ecee; --px-teal: #4fb9ad; --px-gold: #ecb64a; --px-red: #ec7356; --px-grey: #7f949a; --px-brown: #b98a5a; color-scheme: dark }
+  --bg: #0f1613; --surface: #17211c; --subtle: #131c18; --ink: #e4ece7; --muted: #9cada4; --line: #26332d;
+  --accent: #8ccbb0; --accent-ink: #0c1f18; --accent-soft: #1e332a;
+  --gold: #e2b866; --gold-soft: #3a311b; --warn: #e0a36f; --warn-soft: #362818;
+  --help: #e8957f; --help-soft: #34221d; --help-ink: #2a120b; --help-text: #eea08c;
+  --px-ink: #0a120e; --px-white: #e3ece7; --px-teal: #6dbf9c; --px-gold: #eab654; --px-red: #e87a62; --px-grey: #7f928a; --px-brown: #b98a5a;
+  --mood-1: #1d232c; --mood-2: #241f2c; --mood-3: #1f2520; --mood-4: #1b2b22; --mood-5: #2c2718;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25); --shadow-md: 0 6px 24px rgb(0 0 0 / 0.35); color-scheme: dark }
 
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
-.wrap { max-width: 1140px; margin: 0 auto; padding-block: 20px 40px;
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1140px; margin: 0 auto; padding-block: var(--s6) calc(96px + env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: 18px; }
-.view { display: flex; flex-direction: column; gap: 18px; }
-h1, h2, h3 { font-family: var(--display); line-height: 1.15; margin: 0; text-wrap: balance; }
-h1 { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.4rem); letter-spacing: -0.01em; }
-h2 { font-size: 1.3rem; }
+  display: flex; flex-direction: column; gap: var(--s5); }
+.view { display: flex; flex-direction: column; gap: var(--s5); }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
+h1 { font-size: clamp(2rem, 1.6rem + 1.4vw, 2.6rem); font-weight: 700; }
+h2 { font-size: 1.25rem; font-weight: 700; }
 h3 { font-size: 1.05rem; }
 p { margin: 0; }
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 .small { font-size: 0.875rem; }
-.eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+.eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
 
-/* pixel icons */
+/* icons: Lucide line icons */
+.ic { display: block; flex: none; }
+/* habit and reward icons: pixel art from 12x12 grids */
 .px { display: block; flex: none; image-rendering: pixelated; }
 .px .k { fill: var(--px-ink); } .px .w { fill: var(--px-white); } .px .a { fill: var(--px-teal); } .px .g { fill: var(--px-gold); }
 .px .r { fill: var(--px-red); } .px .m { fill: var(--px-grey); } .px .n { fill: var(--px-brown); }
-.tile { display: grid; place-items: center; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); flex: none; }
-.tile.lg { width: 64px; height: 64px; } .tile.md { width: 48px; height: 48px; } .tile.sm { width: 40px; height: 40px; border-radius: 10px; }
-.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; }
-.picker button { min-height: 52px; padding: 6px; border-radius: 12px; background: var(--bg); border: 2px solid transparent; }
+.tile { display: grid; place-items: center; border-radius: var(--radius-md); background: var(--subtle); border: 1px solid var(--line); color: var(--accent); flex: none; }
+.tile.lg { width: 60px; height: 60px; border-radius: 18px; } .tile.md { width: 46px; height: 46px; } .tile.sm { width: 32px; height: 32px; border-radius: var(--radius-sm); }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: var(--s2); }
+.picker button { min-height: 52px; padding: 6px; border-radius: var(--radius-md); background: var(--subtle); border: 1.5px solid transparent; color: var(--accent); box-shadow: none; }
 .picker button[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .picker button:hover { border-color: var(--line); }
 .picker button[aria-checked="true"]:hover { border-color: var(--accent); }
-fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-legend { font-weight: 700; font-size: 0.95rem; padding: 0; margin-bottom: 8px; }
+fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+legend { font-weight: 700; font-size: 0.95rem; padding: 0; margin-bottom: var(--s2); }
 
-header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* header */
+header.top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
 .brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-button, .btn { font: inherit; font-weight: 700; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface);
-  color: var(--ink); padding: 10px 16px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
-button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+header.top .brand .eyebrow { letter-spacing: 0.12em; font-weight: 600; opacity: .9; }
+
+/* buttons: one height, one radius, quiet borders */
+button, .btn { font: inherit; font-weight: 700; font-size: 0.95rem; border-radius: var(--pill); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  padding: 10px 18px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--control);
+  transition: background-color .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease), transform .12s var(--ease); }
+button:hover, .btn:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+button:active, .btn:active { transform: scale(0.97); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: var(--shadow-sm); }
+.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
 .ghost { background: transparent; }
-.danger { border-color: var(--warn); color: var(--warn); background: transparent; }
-.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.checkin { border-color: var(--accent); background: var(--accent-soft); }
+.back { padding-left: 12px; color: var(--muted); border-color: transparent; }
+.back:hover { color: var(--ink); background: var(--surface); }
+.danger { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn); background: transparent; }
+.row { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.reminder-form { display: flex; flex-direction: column; gap: var(--s3); }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; font: inherit; font-weight: 700; cursor: pointer; box-shadow: none; }
+
+/* cards: clean surfaces, soft shadows instead of heavy borders */
+.card { background: var(--card-bg); border: 1px solid transparent; border-radius: var(--radius); padding: var(--s6); display: flex; flex-direction: column; gap: var(--s4); min-width: 0; box-shadow: var(--shadow-sm); }
+.checkin { background: var(--card-bg); }
 .checkin h2 { margin: 0; }
-.reminder-form { display: flex; flex-direction: column; gap: 10px; }
-button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
-button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font: inherit; font-weight: 700; cursor: pointer; }
-
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.habit { cursor: pointer; text-align: left; width: 100%; font-weight: 400; border-radius: var(--radius); padding: 20px; align-items: stretch; transition: border-color .15s, transform .15s; }
-.habit:hover { border-color: var(--accent); }
-@media (prefers-reduced-motion: no-preference) { .habit:hover { transform: translateY(-2px); } }
-.habit-head { display: flex; align-items: center; gap: 12px; width: 100%; }
+.checkin .row .primary { min-width: 132px; }
+.with-ic { display: flex; align-items: center; gap: 10px; }
+.tick { display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--pill); background: var(--accent); color: var(--accent-ink); }
+.habit { cursor: pointer; text-align: left; width: 100%; font-weight: 400; align-items: stretch; gap: var(--s4); }
+.habit:hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); box-shadow: var(--shadow-md); }
+.habit-head { display: flex; align-items: center; gap: var(--s3); width: 100%; }
 .habit-head .brand { flex: 1 1 auto; }
-.habit-head .brand button.link { margin-top: 4px; }
-.icon-panel { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
-.tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; align-self: flex-start; }
-.tag.example { background: var(--gold-soft); color: var(--gold); }
-.run { display: flex; align-items: baseline; gap: 8px; }
-.run .big { font-family: var(--display); font-weight: 700; font-size: 3.2rem; line-height: 1; }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
-.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.stat b { font-size: 1.1rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; }
-.next { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.next-reward { display: flex; align-items: center; gap: 10px; }
+.habit-head .brand button.link { margin-top: 4px; align-self: flex-start; }
+.icon-panel { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--line); }
+.tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: var(--pill); background: var(--accent-soft); color: var(--accent); white-space: nowrap; align-self: flex-start; border: 0; }
+.tag.example { background: transparent; color: var(--muted); border: 1px dashed var(--line); font-weight: 600; letter-spacing: 0.06em; }
 
+/* streak, week strip and stats */
+.run-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s4); flex-wrap: wrap; }
+.run { display: flex; align-items: baseline; gap: var(--s2); }
+.run .big { font-family: var(--display); font-weight: 700; font-size: 3.6rem; line-height: 0.9; letter-spacing: -0.03em; color: var(--ink); }
+.week { display: flex; gap: 6px; }
+.week .day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.week .day i { width: 14px; height: 14px; border-radius: var(--pill); background: var(--subtle); border: 1.5px solid var(--line); display: block; }
+.week .day.clean i { background: var(--accent); border-color: var(--accent); }
+.week .day.slip i { background: transparent; border: 2px solid var(--gold); }
+.week .day.today i { background: var(--accent-soft); border: 2px solid var(--accent); }
+.week .day small { font-size: 0.62rem; color: var(--muted); font-weight: 700; line-height: 1; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; background: var(--subtle); border-radius: var(--radius-md); padding: var(--s3) 0; }
+.stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0 var(--s4); }
+.stat + .stat { border-left: 1px solid var(--line); }
+.stat b { font-family: var(--display); font-size: 1.2rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bar { height: 6px; border-radius: var(--pill); background: var(--subtle); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: var(--pill); transform-origin: left; }
+.next { display: flex; flex-direction: column; gap: var(--s2); width: 100%; }
+.next-reward { display: flex; align-items: center; gap: var(--s3); }
+.next-reward .tile { background: var(--gold-soft); color: var(--gold); }
+
+/* lists and chips */
 .list { display: flex; flex-direction: column; }
-.item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.item { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .item:first-child { border-top: 0; }
 .item .label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.chip { font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.chip { font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: var(--pill); white-space: nowrap; }
 .chip.done { background: var(--gold-soft); color: var(--gold); }
 .chip.todo { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
 .chip.claimed { background: var(--accent-soft); color: var(--accent); }
 
-.notice { border-radius: var(--radius); padding: 18px; background: var(--warn-soft); color: var(--ink); display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--warn); }
+/* notices */
+.notice { border-radius: var(--radius-md); padding: var(--s5); background: var(--warn-soft); color: var(--ink); display: flex; flex-direction: column; gap: var(--s2); border: 0; }
 .notice h3 { color: var(--warn); }
 .notice ul { margin: 0; padding-left: 20px; }
 .soft { background: var(--accent-soft); border-color: transparent; }
 .soft h3 { color: var(--accent); }
 
-form { display: flex; flex-direction: column; gap: 14px; }
+/* forms */
+form { display: flex; flex-direction: column; gap: var(--s4); }
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 0.95rem; }
-input, select { font: inherit; font-weight: 400; padding: 11px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); min-height: 44px; width: 100%; }
-.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+input, select, textarea { font: inherit; font-weight: 400; padding: 11px 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--subtle); color: var(--ink); min-height: var(--control); width: 100%;
+  transition: border-color .18s var(--ease), background-color .18s var(--ease); }
+input:focus, select:focus, textarea:focus { background: var(--surface); border-color: var(--accent); }
+textarea { min-height: 110px; resize: vertical; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3); }
 .check { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; }
-.check input { width: 22px; min-height: 22px; height: 22px; margin-top: 2px; flex: none; }
+.check input { width: 22px; min-height: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--accent); }
 
-.kept { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.kept .stat { background: var(--bg); border-radius: 10px; padding: 12px; }
-.phone { font-family: var(--display); font-size: 1.35rem; font-weight: 700; user-select: all; font-variant-numeric: tabular-nums; }
-.help-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.kept { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
+.kept .stat { background: var(--subtle); border-radius: var(--radius-md); padding: var(--s3); border: 0; }
+
+/* help lines */
+.phone { font-family: var(--display); font-size: 1.35rem; font-weight: 700; user-select: all; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.help-line { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); flex-wrap: wrap; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .help-line:first-of-type { border-top: 0; }
+.help-line .label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.btn.call { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+/* help that stands out (ADR 0007 Part 4): muted coral, its own colour */
+.urgent-btn { background: var(--help-soft); border-color: transparent; color: var(--help-text); }
+.urgent-btn:hover { border-color: color-mix(in srgb, var(--help) 40%, transparent); }
+.help-fab { position: fixed; z-index: 15; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--help) 35%, var(--line)); color: var(--help-text); box-shadow: var(--shadow-md); }
+.help-fab::before { content: ""; width: 8px; height: 8px; border-radius: var(--pill); background: var(--help); }
+/* Emergency: the most prominent thing on Get help. Crisis support: a clean white card with a quieter coral Call. */
+.card.urgent { background: var(--help-soft); border: 1px solid color-mix(in srgb, var(--help) 28%, transparent); box-shadow: var(--shadow-sm); gap: var(--s3); }
+.card.urgent .eyebrow { color: var(--help-text); }
+.card.urgent h2 { font-size: 1.5rem; }
+.card.urgent .phone { font-size: 2.4rem; letter-spacing: -0.02em; line-height: 1.1; }
+.card.urgent .btn.call { background: var(--help); border-color: var(--help); color: var(--help-ink); min-width: 124px; min-height: 52px; font-size: 1.05rem; box-shadow: var(--shadow-sm); }
+.card.urgent button.ghost { background: color-mix(in srgb, var(--surface) 70%, transparent); border-color: transparent; }
+.card.urgent .help-line { border-top-color: color-mix(in srgb, var(--help) 22%, transparent); }
+.card.crisis .dot { width: 10px; height: 10px; border-radius: var(--pill); background: var(--help); flex: none; }
+.card.crisis .btn.call { background: var(--help-soft); border-color: transparent; color: var(--help-text); }
+.card.crisis .btn.call:hover { border-color: color-mix(in srgb, var(--help) 40%, transparent); }
+/* light/dark switch: small, home screen only */
+.theme-switch { min-height: 30px; padding: 3px; gap: 2px; border-radius: var(--pill); background: var(--subtle); border: 1px solid var(--line); align-self: flex-start; margin-bottom: var(--s2); box-shadow: none; }
+.theme-switch .ico { width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--pill); color: var(--muted); transition: background-color .25s var(--ease), color .25s var(--ease); }
+.theme-switch[aria-checked="false"] .sun, .theme-switch[aria-checked="true"] .moon { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+/* daily journal (DDD 7.10) */
+.mood-card { gap: var(--s3); }
+.mood-card form { gap: var(--s5); }
+.hint { display: block; text-align: center; margin: 2px 0 var(--s1); letter-spacing: 0.14em; }
+legend.hint { width: 100%; }
+/* five soft circles: each mood has its own gentle tint, the same in shape in both themes */
+.moods { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); justify-items: center; }
+.mood { flex-direction: column; gap: 10px; padding: 4px 0; min-height: 0; width: 100%; background: none; border: 0; box-shadow: none; color: var(--muted); font-size: 0.78rem; font-weight: 700; border-radius: var(--radius-md); }
+.mood:hover, .mood[aria-pressed="true"] { background: none; border: 0; }
+.mood .disc { width: min(58px, 100%); aspect-ratio: 1; }
+.disc { display: grid; place-items: center; border-radius: var(--pill); background: var(--mood-bg, var(--subtle)); border: 1.5px solid transparent; flex: none;
+  transition: transform .28s var(--ease), border-color .28s var(--ease), box-shadow .28s var(--ease), background-color .28s var(--ease); }
+.mood-card .with-ic .disc { width: 44px; height: 44px; }
+.m1 { --mood-bg: var(--mood-1); } .m2 { --mood-bg: var(--mood-2); } .m3 { --mood-bg: var(--mood-3); } .m4 { --mood-bg: var(--mood-4); } .m5 { --mood-bg: var(--mood-5); }
+.mood:hover .disc { transform: translateY(-2px); }
+.mood[aria-pressed="true"] .disc { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), var(--shadow-sm); transform: scale(1.06); }
+.mood[aria-pressed="true"] .word { color: var(--ink); }
+.mood .word { transition: color .28s var(--ease); }
+.face { display: inline-block; vertical-align: middle; flex: none; transition: transform .28s var(--ease); }
+.mood[aria-pressed="true"] .face { transform: scale(1.04); }
+/* note field with an icon, rounded habit chips, a wide "Log mood" button */
+.field-ic { position: relative; display: block; }
+.field-ic .ic { position: absolute; left: 14px; top: 14px; color: var(--muted); pointer-events: none; }
+.field-ic textarea { padding-left: 42px; min-height: 96px; border-radius: var(--radius-md); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.chip-tag { min-height: 36px; padding: 6px 14px; font-size: 0.85rem; font-weight: 600; background: var(--surface); border: 1px solid var(--line); color: var(--ink); box-shadow: none; }
+.chip-tag[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.wide { width: 100%; min-height: 52px; font-size: 1rem; }
+.row.center { justify-content: center; }
+#lowMood:empty { display: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.entry { display: flex; flex-direction: column; gap: 4px; padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.entry:first-of-type { border-top: 0; }
 
-.demo { border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top: 6px; }
+.demo { border: 1px dashed var(--line); border-radius: var(--radius); padding: var(--s5); display: flex; flex-direction: column; gap: var(--s3); }
+footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top: var(--s2); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg);
-  padding: 10px 18px; border-radius: 999px; font-weight: 700; z-index: 20; max-width: calc(100% - 32px); text-align: center; }
+  padding: 10px 18px; border-radius: var(--pill); font-weight: 700; z-index: 20; max-width: calc(100% - 32px); text-align: center; box-shadow: var(--shadow-md); }
 
 /* screen layouts: stacked on phones */
-.home-grid, .detail-grid, .help-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
-.cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.narrow { width: 100%; max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.home-grid, .detail-grid, .help-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-items: start; }
+.cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+.col { display: flex; flex-direction: column; gap: var(--s5); min-width: 0; }
+.narrow { width: 100%; max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--s5); }
 .side-add { display: none; }
 
 @media (min-width: 720px) {
@@ -147,15 +255,32 @@ footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top
   .help-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 1000px) {
-  .wrap { padding-block: 32px 48px; gap: 24px; }
-  .home-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
+  .wrap { padding-top: 40px; gap: var(--s6); }
+  .home-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: var(--s6); }
   .home-grid .col.side { position: sticky; top: calc(24px + env(safe-area-inset-top, 0px)); }
-  .detail-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px; }
+  .detail-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--s6); }
   .side-add { display: inline-flex; }
   .mobile-add { display: none; }
 }
-@media (max-width: 380px) { .stats, .kept { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .two { grid-template-columns: minmax(0, 1fr); } }
-@media (prefers-reduced-motion: no-preference) { .view { animation: rise .22s ease-out; } @keyframes rise { from { transform: translateY(6px); opacity: .6; } to { transform: none; opacity: 1; } } }
+@media (max-width: 380px) { .kept { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .stat { padding: 0 var(--s3); } .two { grid-template-columns: minmax(0, 1fr); } .run .big { font-size: 3rem; } }
+
+/* motion: short and purposeful, and none at all for people who ask for less */
+@media (prefers-reduced-motion: no-preference) {
+  body, .card, .stats, .tile { transition: background-color .3s var(--ease), border-color .3s var(--ease), color .3s var(--ease); }
+  .view { animation: rise .26s var(--ease); }
+  @keyframes rise { from { transform: translateY(6px); opacity: .5; } to { transform: none; opacity: 1; } }
+  .habit { transition: box-shadow .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
+  .habit:hover { transform: translateY(-2px); }
+  .bar > i { animation: fill .7s var(--ease) both; }
+  @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .mood[aria-pressed="true"] .face { animation: settle .36s var(--ease); }
+  @keyframes settle { 0% { transform: scale(.9); } 60% { transform: scale(1.1); } 100% { transform: scale(1.04); } }
+  @keyframes pop { 0% { transform: scale(.85); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  .checkin.done .tick { animation: pop .4s var(--ease); }
+  .week .day.today i { animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); } }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
@@ -212,7 +337,7 @@ const CLAIMS = {
   // Help lines by country (ADR 0007). Emergency is a number as text; the others are { name, about, lines: [[label, number, note?]], ... }.
   'help.PH.emergency': '911',
   'help.PH.crisis': { name: 'NCMH', about: 'National Center for Mental Health crisis hotline: 24/7 and free', lines: [['Nationwide landline', '1553'], ['Smart / TNT', '0919 057 1553'], ['Globe / TM', '0917 899 8727']] },
-  'help.PH.quit': { about: 'DOH Quitline: free counselling and a quit plan, for smoking and vaping', lines: [['Call', '1558', 'Toll-free']], text: ['STOPSMOKE', '29290 165364'] },
+  'help.PH.quit': { about: 'DOH Quitline: free counselling and a quit plan, for smoking and vaping', lines: [['Call', '1558', 'Toll-free, weekdays 8am to 4pm']], text: ['STOPSMOKE', '29290 165364'] },
   'help.PH.drugs': { about: 'DOH Substance Abuse Helpline: free and confidential support, and referral to treatment, for people who use drugs and their families', lines: [['Call', '1550']] },
   'help.PH.gambling': { about: 'National Problem Gambling Helpline (PAGCOR and Seagulls Flock): 24/7, free and confidential, for gamblers and their families', lines: [['Call', '(02) 8248 9568']], site: 'https://npgh.ph/', chat: 'You can also message them on Viber.' },
   'help.US.emergency': '911',
@@ -232,12 +357,12 @@ const CLAIMS = {
   'help.GB.quit': { about: 'Free NHS stop smoking helplines. Each nation has its own. Northern Ireland has no helpline, but you can find local services online.', lines: [['England: Smokefree', '0300 123 1044'], ['Scotland: Quit Your Way', '0800 84 84 84'], ['Wales: Help Me Quit', '0800 085 2219']], site: 'https://www.stopsmokingni.info/', siteLabel: 'stopsmokingni.info (Northern Ireland)' },
   'help.GB.gambling': { about: 'National Gambling Helpline, run by GamCare: free, 24 hours a day, 7 days a week, for people in Great Britain', lines: [['Call', '0808 8020 133']] },
   'help.GB.drugs': { about: 'FRANK gives honest advice about drugs, 24/7, for the cost of a normal call. Drinkline is a free, confidential alcohol helpline.', lines: [['FRANK (drugs), 24/7', '0300 123 6600'], ['Drinkline (alcohol)', '0300 123 1110', 'Weekdays 9am to 8pm, weekends 11am to 4pm']] },
-  'help.AU.quit': { about: 'Quitline: free counselling to quit smoking or vaping, including Aboriginal and Torres Strait Islander counsellors. It costs a local call, and hours vary by state.', lines: [['Call (13 QUIT)', '13 7848']] },
+  'help.AU.quit': { about: 'Quitline: free counselling to quit smoking or vaping, including Aboriginal and Torres Strait Islander counsellors. It costs a local call (more from mobiles), and hours vary by state.', lines: [['Call (13 QUIT)', '13 7848']] },
   'help.AU.gambling': { about: 'Gambling Helpline: free and confidential, 24 hours a day, 7 days a week, for anyone affected by gambling', lines: [['Call', '1800 858 858']], chat: 'Gambling Help Online also offers chat counselling.', site: 'https://www.gamblinghelponline.org.au/' },
-  'help.AU.drugs': { about: "National Alcohol and Other Drug Hotline: free and confidential, 24/7 (8.30am to 10pm in South Australia). It connects you to your state's service.", lines: [['Call', '1800 250 015']] },
+  'help.AU.drugs': { about: "National Alcohol and Other Drug Hotline: free and confidential, 24/7 (8.30am to 10pm in South Australia). In most states, it connects you to your state's service.", lines: [['Call', '1800 250 015']] },
   'help.CA.quit': { about: "Free quit coaching for smoking or vaping. This number connects you to your province or territory's quitline.", lines: [['Call', '1-866-366-3667']] },
   'help.CA.gambling': { about: 'Canada has no national gambling help line. Each province and territory runs its own, and the Responsible Gambling Council lists them all.', lines: [], site: 'https://www.responsiblegambling.org/for-the-public/problem-gambling-help/help-for-canadians/', siteLabel: 'Responsible Gambling Council: help lines by province' },
-  'help.CA.drugs': { about: 'Canada has no single national line for drugs or alcohol. Health Canada lists a help line for every province and territory.', lines: [], site: 'https://www.canada.ca/en/health-canada/services/substance-use/get-help/get-help-problematic-substance-use.html', siteLabel: 'Health Canada: get help with substance use' },
+  'help.CA.drugs': { about: 'Help for drugs or alcohol in Canada is run by each province and territory. Health Canada lists a line for every one, plus some Canada-wide services.', lines: [], site: 'https://www.canada.ca/en/health-canada/services/substance-use/get-help/get-help-problematic-substance-use.html', siteLabel: 'Health Canada: get help with substance use' },
   'help.SG.quit': { about: "HPB QuitLine: talk to trained Quit Consultants about quitting smoking or vaping. People who come forward on their own for help to quit vaping won't be penalised. Mobile airtime charges apply.", lines: [['Call', '1800 438 2000']] },
   'help.SG.gambling': { about: 'National Council on Problem Gambling (NCPG) Helpline: every day, 8am to 11pm, for you or someone you know', lines: [['Call', '1800-6-668-668']], chat: 'Webchat is open the same hours.', site: 'https://www.msf.gov.sg/ncpg' },
   'help.SG.drugs': { about: 'NAMS All Addictions Helpline (6-RECOVER): for alcohol and drug problems, every day, 8.30am to 9pm', lines: [['Call', '6732 6837']] },
@@ -261,6 +386,24 @@ const TYPES = {
 };
 const CURRENCIES = ['PHP', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'JPY', 'INR'];
 
+// ---------- UI icons: Lucide line icons (lucide-static 0.460.0). Habit and reward icons are the pixel art below (Mark, 2026-11-10). ----------
+// Lucide: ISC License. Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c)
+// for Lucide are held by Lucide Contributors 2022. Permission to use, copy, modify, and/or distribute this software for any purpose with or
+// without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies. https://lucide.dev/license
+const LUCIDE = {
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'copy': '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  'moon': '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  'notebook-pen': '<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
+  'life-buoy': '<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/>',
+  'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'circle-plus': '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>',
+  'check': '<path d="M20 6 9 17l-5-5"/>',
+  'piggy-bank': '<path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2V5z"/><path d="M2 9v1c0 1.1.9 2 2 2h1"/><path d="M16 11h.01"/>',
+  'trophy': '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+};
 // ---------- pixel icons: 12x12 grids. k ink, w white, a teal, g gold, r red, m grey, n brown ----------
 const HABIT_ICONS = {
   beer: ['Beer', ['............', '..w.ww.w....', '.wwwwwwww...', '.kkkkkkkkk..', '.kggggggk.k.', '.kgwggggk.k.', '.kgwggggk.k.', '.kggggggkkk.', '.kggggggk...', '.kggggggk...', '.kkkkkkkk...', '............']],
@@ -370,8 +513,8 @@ function setSlipWhy(h, index) {
 }
 
 const svgCache = {};
-function pixel(name, size = 32) {
-  const icon = HABIT_ICONS[name] || REWARD_ICONS[name] || HABIT_ICONS.star;
+function pixel(name, size = 32, decorative = false) {
+  const icon = HABIT_ICONS[name] || REWARD_ICONS[name] || MOOD_PIX[String(name).replace(/^mood/, '')] || HABIT_ICONS.star;
   const key = `${name}`;
   if (!svgCache[key]) {
     // merge each row's runs of the same colour into one rect
@@ -386,13 +529,20 @@ function pixel(name, size = 32) {
     });
     svgCache[key] = rects;
   }
-  return `<svg class="px" width="${size}" height="${size}" viewBox="0 0 12 12" shape-rendering="crispEdges" role="img" aria-label="${icon[0]}">${svgCache[key]}</svg>`;
+  return `<svg class="px" width="${size}" height="${size}" viewBox="0 0 12 12" shape-rendering="crispEdges" ${decorative ? 'aria-hidden="true"' : `role="img" aria-label="${icon[0]}"`}>${svgCache[key]}</svg>`;
+}
+// One icon. Habit and reward keys draw their pixel art; any other name is a Lucide UI icon.
+// 'ui:name' always means the Lucide icon, so a UI icon never clashes with a habit key (the habit key 'phone' is a pixel phone).
+function glyph(name, size = 24) {
+  const ui = name.startsWith('ui:') ? name.slice(3) : null;
+  if (!ui && (HABIT_ICONS[name] || REWARD_ICONS[name] || !LUCIDE[name])) return pixel(name, size);
+  return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE[ui || name]}</svg>`;
 }
 const habitIcon = h => h.icon || TYPE_ICON[h.type] || 'star';
 const rewardIcon = r => r.icon || 'gift';
 function picker(set, chosen, group) {
   return `<div class="picker" role="radiogroup">${Object.entries(set).map(([k, [label]]) =>
-    `<button type="button" role="radio" aria-checked="${k === chosen}" aria-label="${label}" title="${label}" data-pick="${group}" data-icon="${k}">${pixel(k, 32)}</button>`).join('')}</div>`;
+    `<button type="button" role="radio" aria-checked="${k === chosen}" aria-label="${label}" title="${label}" data-pick="${group}" data-icon="${k}">${glyph(k, 32)}</button>`).join('')}</div>`;
 }
 
 // ---------- dates (whole local days; demo clock adds an offset) ----------
@@ -428,12 +578,21 @@ const rewardUnlocked = (r, p) => r.kind === 'money' ? p.saved >= r.target : p.cl
 const rewardGoal = (r, h) => r.kind === 'money' ? `at ${money(r.target, h.currency)} saved` : `at ${r.target} clean day${r.target === 1 ? '' : 's'}`;
 
 // ---------- storage (try/catch: the app still runs if storage is blocked) ----------
-let state = { habits: [], demoOffsetDays: 0, examples: true };
+let state = { habits: [], demoOffsetDays: 0, examples: true, journal: {} };
 function load() {
   try { const raw = localStorage.getItem(STORE_KEY); if (raw) return JSON.parse(raw); } catch { /* storage blocked */ }
   return null;
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* keep going in memory */ } }
+// Light or dark: follows the phone until the user taps the switch, then their choice is kept (state.theme).
+const phoneIsDark = () => { try { return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches; } catch { return false; } };
+const isDark = () => (state.theme ? state.theme === 'dark' : phoneIsDark());
+function applyTheme() {
+  const root = document.documentElement; if (!root) return;
+  if (state.theme === 'light' || state.theme === 'dark') root.dataset.theme = state.theme; else delete root.dataset.theme;
+}
+const themeSwitch = () => `<button class="theme-switch" data-act="theme" role="switch" aria-checked="${isDark()}" aria-label="Dark mode">
+  <span class="ico sun">${glyph('sun', 14)}</span><span class="ico moon">${glyph('moon', 14)}</span></button>`;
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 function exampleHabits() {
@@ -467,16 +626,34 @@ const habitById = id => state.habits.find(h => h.id === id);
 const footer = `<footer>Steady is a habit support tool, not medical treatment or medical advice. If you think you may be dependent on alcohol or another substance, talk to a doctor.</footer>`;
 
 function render() {
-  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen };
-  app.innerHTML = `<div class="view">${(screens[view.name] || home)()}</div>${footer}`;
+  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen, journal: journalScreen };
+  // "Need help now?" on every screen but Get help itself and first launch, which has its own (ADR 0007 rule 17)
+  const fab = view.name === 'help' || (view.name === 'country' && view.first) ? '' : '<button class="help-fab" data-go="help">Need help now?</button>';
+  app.innerHTML = `<div class="view">${(screens[view.name] || home)()}</div>${footer}${fab}`;
   bind();
 }
 
 const statsBlock = (h, p) => `<div class="stats">
-  <div class="stat"><span class="eyebrow">Clean days</span><b>${p.clean}</b></div>
-  <div class="stat"><span class="eyebrow">Saved</span><b>${h.cost > 0 ? money(p.saved, h.currency) : '—'}</b></div>
-  <div class="stat"><span class="eyebrow">Best run</span><b>${p.longest}</b></div></div>`;
+  <div class="stat"><span class="eyebrow">${glyph('check', 14)}Clean days</span><b>${p.clean}</b></div>
+  <div class="stat"><span class="eyebrow">${glyph('piggy-bank', 14)}Saved</span><b>${h.cost > 0 ? money(p.saved, h.currency) : '—'}</b></div>
+  <div class="stat"><span class="eyebrow">${glyph('ui:trophy', 14)}Best run</span><b>${p.longest}</b></div></div>`;
 const runBlock = p => `<div class="run"><span class="big num">${p.run}</span><span class="muted">day${p.run === 1 ? '' : 's'} in this run</span></div>`;
+// The last 7 days, oldest first, from the same rules as progress(): before the start is 'none', a slip day is 'slip',
+// an earlier day without a slip is 'clean', and today without a slip is 'today' (still going).
+function weekDays(h) {
+  const today = todayKey(), slips = new Set(h.slips);
+  return Array.from({ length: 7 }, (_, i) => {
+    const key = addDays(today, i - 6);
+    const state = key < h.start ? 'none' : slips.has(key) ? 'slip' : key < today ? 'clean' : 'today';
+    return { key, state };
+  });
+}
+const DAY_WORD = { none: 'not started', slip: 'slip', clean: 'clean', today: 'today' };
+const weekStrip = h => {
+  const days = weekDays(h);
+  const label = `Last 7 days: ${days.filter(d => d.state === 'clean').length} clean, ${days.filter(d => d.state === 'slip').length} slip${days.filter(d => d.state === 'slip').length === 1 ? '' : 's'}`;
+  return `<div class="week" role="img" aria-label="${label}">${days.map(d => `<span class="day ${d.state}" title="${niceDate(d.key)}: ${DAY_WORD[d.state]}"><i></i><small>${new Date(dayNum(d.key) * 86400000).toLocaleDateString(undefined, { weekday: 'narrow', timeZone: 'UTC' })}</small></span>`).join('')}</div>`;
+};
 // Written as direct claim() calls so the evidence check can see each one is used.
 const HEALTH = { smoking: () => claim('health.smoking'), drinking: () => claim('health.alcohol'), cannabis: () => claim('health.cannabis') };
 // "Your body": facts reached so far plus the next two, counted from the last use (DDD 7.2).
@@ -545,7 +722,7 @@ const realHabits = () => state.habits.filter(h => !h.example);
 function checkinCard() {
   if (!state.habits.length) return '';
   const t = todayKey();
-  if (state.checkin === t) return `<section class="card checkin"><span class="eyebrow">Today</span><h2>Checked in.</h2><p class="muted">${cheerFor(t)}</p></section>`;
+  if (state.checkin === t) return `<section class="card checkin done"><span class="eyebrow">Today</span><h2 class="with-ic"><span class="tick">${glyph('check', 18)}</span>Checked in.</h2><p class="muted">${cheerFor(t)}</p></section>`;
   if (view.confirmClean) return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>Log today as a clean day?</h2>
     <div class="row"><button class="primary" data-act="checkin">Yes, clean day</button><button class="ghost" data-act="cancelslip">Not now</button></div></section>`;
   if (view.pickSlip) return `<section class="card checkin"><h2>Which habit?</h2>
@@ -553,6 +730,80 @@ function checkinCard() {
   return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>How did today go?</h2>
     <div class="row"><button class="primary" data-act="checkin">Clean day</button><button data-act="checkinslip">I slipped</button></div></section>`;
 }
+// ---------- daily journal (DDD 7.10) ----------
+// One entry per day: { mood: 1-5, note, habits: [habitId] }. It stays on this phone and is never read or judged by the app.
+// Mood faces: 12x12 pixel art in the same style as the habit icons (k ink, g gold, a teal tear, r mouth). DDD 7.10, ADR 0009.
+const MOOD_TOP = ['...kkkkkk...', '..kggggggk..', '.kggggggggk.', 'kggggggggggk']; // top of the face
+const MOOD_PIX = {
+  1: ['Very low', [...MOOD_TOP, 'kggggggggggk', 'kgkkggggkkgk', 'kgaggggggggk', 'kgaggggggggk', 'kgggkkkkgggk', '.kgkggggkgk.', '..kggggggk..', '...kkkkkk...']],
+  2: ['Low', [...MOOD_TOP, 'kggkggggkggk', 'kggkggggkggk', 'kggggggggggk', 'kggggggggggk', 'kggggkkggggk', '.kggkggkggk.', '..kggggggk..', '...kkkkkk...']],
+  3: ['Okay', [...MOOD_TOP, 'kggkggggkggk', 'kggkggggkggk', 'kggggggggggk', 'kggggggggggk', 'kgggkkkkgggk', '.kggggggggk.', '..kggggggk..', '...kkkkkk...']],
+  4: ['Good', [...MOOD_TOP, 'kggkggggkggk', 'kggkggggkggk', 'kggggggggggk', 'kgrkggggkrgk', 'kgggkkkkgggk', '.kggggggggk.', '..kggggggk..', '...kkkkkk...']],
+  5: ['Great', [...MOOD_TOP, 'kggkggggkggk', 'kgkgkggkgkgk', 'kggggggggggk', 'kgrkkkkkkrgk', 'kggkrrrrkggk', '.kggkkkkggk.', '..kggggggk..', '...kkkkkk...']],
+};
+const MOODS = [[1, '😞', 'Very low'], [2, '🙁', 'Low'], [3, '😐', 'Okay'], [4, '🙂', 'Good'], [5, '😄', 'Great']];
+const NOTE_MAX = 1000;
+const faceImg = (n, px = 36) => pixel(`mood${n}`, px, true).replace('class="px"', 'class="px face"');
+const moodOf = n => MOODS.find(m => m[0] === n);
+function saveJournal(key, { mood, note = '', habits = [] }) {
+  if (!moodOf(Number(mood))) return 'Pick how you feel first';
+  state.journal[key] = { mood: Number(mood), note: String(note).slice(0, NOTE_MAX), habits: habits.filter(id => habitById(id)) };
+  save(); return 'Saved to your journal';
+}
+function removeJournal(key) {
+  if (view.confirmJRemove !== key) { view.confirmJRemove = key; render(); return; }
+  delete state.journal[key]; view.confirmJRemove = null; view.jday = null; view.jdraft = null; save(); render(); toast('Entry removed');
+}
+// Five soft circles, one gentle tint per mood. Used on the home card (attr data-jmood) and the journal form (data-mood).
+const moodPicker = (attr, selected = 0) => `<div class="moods" role="group" aria-label="Your mood">${MOODS.map(([n, , word]) =>
+  `<button type="button" class="mood m${n}" ${attr}="${n}" aria-pressed="${selected === n}"><span class="disc">${faceImg(n, 34)}</span><span class="word">${word}</span></button>`).join('')}</div>`;
+function journalCard() {
+  const e = state.journal[todayKey()];
+  if (e) return `<button class="card mood-card done" data-go="journal" aria-label="Open your journal"><span class="eyebrow">Journal</span>
+    <h2 class="with-ic"><span class="disc m${e.mood}">${faceImg(e.mood, 30)}</span>Today you feel ${moodOf(e.mood)[2].toLowerCase()}</h2><span class="small muted">Tap to add or change a note.</span></button>`;
+  return `<section class="card mood-card"><span class="eyebrow">Journal</span><h2>How are you feeling?</h2>
+    <p class="eyebrow hint">Tap a face</p>${moodPicker('data-jmood')}</section>`;
+}
+// Gentle support under a "Very low" entry. It follows the country and never reads the note.
+function lowMoodNotice() {
+  const c = country();
+  const reach = c.crisis ? `You can call ${crisisText(c)}, any time.`
+    : `If you're in danger, call your local emergency number. To find someone to talk to, visit <a href="${claim('help.directory').site}" target="_blank" rel="noopener">findahelpline.com</a>.`;
+  return `<div class="notice soft"><h3>Having a really hard day?</h3><p>You don't have to face it alone. ${reach}</p>
+    <div class="row"><button data-go="help">See help lines</button></div></div>`;
+}
+function journalScreen() {
+  const key = view.jday || todayKey();
+  const d = view.jdraft || { mood: 0, note: '', habits: [], ...(state.journal[key] || {}) };
+  const isToday = key === todayKey();
+  const past = Object.keys(state.journal).sort().reverse().filter(k => k !== key);
+  const tags = e => e.habits.map(id => habitById(id)).filter(Boolean).map(h => esc(h.name)).join(', ');
+  return `
+    <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button></header>
+    <div class="brand"><h1>Journal</h1><p class="small muted">Your journal stays on this phone. Steady never reads or sends it.</p></div>
+    <div class="detail-grid">
+      <section class="card mood-card"><h2>${isToday ? 'How are you feeling?' : `How you felt on ${niceDate(key)}`}</h2>
+        <form id="journalForm">
+          <fieldset><legend class="eyebrow hint">Tap a face</legend>${moodPicker('data-mood', d.mood)}</fieldset>
+          <div id="lowMood" aria-live="polite">${d.mood === 1 ? lowMoodNotice() : ''}</div>
+          <label class="field-ic"><span class="sr-only">A few words, if you like</span>${glyph('notebook-pen', 18)}<textarea id="jNote" maxlength="${NOTE_MAX}" placeholder="Add a note (optional)">${esc(d.note)}</textarea></label>
+          ${state.habits.length ? `<fieldset><legend class="small muted">About a habit? (optional)</legend>
+            <div class="chips">${state.habits.map(h => `<button type="button" class="chip-tag" data-jtag="${h.id}" aria-pressed="${d.habits.includes(h.id)}">${esc(h.name)}</button>`).join('')}</div></fieldset>` : ''}
+          <button type="submit" class="primary wide">${state.journal[key] ? 'Save changes' : 'Log mood'}${glyph('circle-plus', 18)}</button>
+          ${!isToday || state.journal[key] ? `<div class="row center">${!isToday ? '<button type="button" class="ghost" data-act="jtoday">Back to today</button>' : ''}
+            ${state.journal[key] ? `<button type="button" class="ghost danger" data-jremove="${key}">${view.confirmJRemove === key ? 'Tap again to remove' : 'Remove'}</button>` : ''}</div>` : ''}
+        </form>
+      </section>
+      <section class="card"><h2>Earlier days</h2>
+        ${past.length ? past.map(k => { const e = state.journal[k]; const m = moodOf(e.mood);
+          return `<div class="entry"><span class="small muted">${niceDate(k)}</span><b>${faceImg(e.mood, 22)} ${m[2]}</b>
+            ${e.note ? `<span>${esc(e.note.split('\n')[0].slice(0, 120))}</span>` : ''}${tags(e) ? `<span class="small muted">About: ${tags(e)}</span>` : ''}
+            <div class="row"><button class="ghost" data-jedit="${k}">Edit</button><button class="ghost danger" data-jremove="${k}">${view.confirmJRemove === k ? 'Tap again to remove' : 'Remove'}</button></div></div>`; }).join('')
+          : '<p class="small muted">Nothing here yet. Each day you write something, it shows up here.</p>'}
+      </section>
+    </div>`;
+}
+
 function reminderCard() {
   const phone = state.habits.some(h => h.type === 'phone');
   return `<section class="card"><h3>Remind me daily</h3>
@@ -566,7 +817,7 @@ function reminderCard() {
 
 const PRIVATE_TYPES = ['drugs', 'cannabis'];
 const shownType = h => (PRIVATE_TYPES.includes(h.type) ? 'Private' : TYPES[h.type]); // DDD 7.1 and 7.9: stays discreet on screen
-const tagFor = h => `<span class="tag ${h.example ? 'example' : ''}">${h.example ? 'Example' : esc(shownType(h))}</span>`;
+const tagFor = h => `<span class="tag ${h.example ? 'example' : ''}">${h.example ? 'Sample' : esc(shownType(h))}</span>`;
 
 function home() {
   const cards = state.habits.map(h => {
@@ -575,27 +826,28 @@ function home() {
     const base = p.prevM ? p.prevM[0] : 0;
     const pct = p.next ? Math.round(((p.clean - base) / (p.next[0] - base)) * 100) : 100;
     return `<button class="card habit" data-open="${h.id}" aria-label="Open ${esc(h.name)}">
-      <div class="habit-head"><span class="tile md">${pixel(habitIcon(h), 32)}</span>
+      <div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span>
         <div class="brand"><h2>${esc(h.name)}</h2><span class="small muted">${esc(shownType(h))}</span></div>${h.example ? tagFor(h) : ''}</div>
-      ${runBlock(p)}${statsBlock(h, p)}
+      <div class="run-row">${runBlock(p)}${weekStrip(h)}</div>${statsBlock(h, p)}
       <div class="next">
         <span class="small muted">${p.next ? `Next milestone: <b>${p.next[0]} clean days</b> (${p.next[0] - p.clean} to go)` : 'Every milestone reached'}</span>
         <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, pct)}%"></i></div>
-        ${nextReward ? `<span class="next-reward small"><span class="tile sm">${pixel(rewardIcon(nextReward), 24)}</span><span>${rewardUnlocked(nextReward, p) ? '<b style="color:var(--gold)">Reward unlocked:</b>' : 'Next reward:'} ${esc(nextReward.name)} <span class="muted">${rewardGoal(nextReward, h)}</span></span></span>` : ''}
+        ${nextReward ? `<span class="next-reward small"><span class="tile sm">${glyph(rewardIcon(nextReward), 22)}</span><span>${rewardUnlocked(nextReward, p) ? '<b style="color:var(--gold)">Reward unlocked:</b>' : 'Next reward:'} ${esc(nextReward.name)} <span class="muted">${rewardGoal(nextReward, h)}</span></span></span>` : ''}
       </div>
     </button>`;
   }).join('');
   return `
     <header class="top">
-      <div class="brand"><span class="eyebrow">${niceDate(todayKey())}${state.demoOffsetDays ? ` · demo +${state.demoOffsetDays}d` : ''}</span><h1>Steady</h1></div>
-      <div class="row"><button class="ghost" data-go="help">Get help</button><button class="primary side-add" data-go="add">Add a habit</button></div>
+      <div class="brand">${themeSwitch()}<span class="eyebrow">${niceDate(todayKey())}${state.demoOffsetDays ? ` · demo +${state.demoOffsetDays}d` : ''}</span><h1>Steady</h1></div>
+      <div class="row"><button class="ghost" data-go="journal">${glyph('notebook-pen', 18)}Journal</button><button class="urgent-btn" data-go="help">${glyph('life-buoy', 18)}Get help</button><button class="primary side-add" data-go="add">${glyph('plus', 18)}Add a habit</button></div>
     </header>
     <div class="home-grid">
       <div class="col">
         ${samsungNote()}
         ${checkinCard()}
+        ${journalCard()}
         ${state.habits.length ? `<div class="cards">${cards}</div>` : `<div class="card"><h2>Start with one habit</h2><p class="muted">Add something you want to stop. Steady counts your clean days, your money saved and the rewards you set for yourself.</p></div>`}
-        <button class="primary mobile-add" data-go="add">Add a habit</button>
+        <button class="primary mobile-add" data-go="add">${glyph('plus', 18)}Add a habit</button>
       </div>
       <aside class="col side">
         <section class="card"><h3>How Steady counts</h3>
@@ -627,7 +879,7 @@ function habitScreen() {
     const right = r.claimed ? '<span class="chip claimed">Claimed</span>'
       : unlocked ? `<button class="primary" data-claim="${r.id}">Claim</button>`
       : `<span class="chip todo">${r.kind === 'money' ? money(Math.max(0, r.target - p.saved), h.currency) : `${Math.max(0, r.target - p.clean)} days`} to go</span>`;
-    return `<div class="item"><span class="tile md">${pixel(rewardIcon(r), 32)}</span><div class="label"><b>${esc(r.name)}</b><span class="small muted">${rewardGoal(r, h)}</span></div>${right}</div>`;
+    return `<div class="item"><span class="tile md">${glyph(rewardIcon(r), 30)}</span><div class="label"><b>${esc(r.name)}</b><span class="small muted">${rewardGoal(r, h)}</span></div>${right}</div>`;
   }).join('') || '<p class="muted small">No rewards yet. Pick something you would enjoy.</p>';
   const safety = h.type === 'drinking' ? `<div class="notice"><h3>Before you stop drinking</h3><p>${claim('alcohol.doctor')} ${claim('alcohol.withdrawal')}</p></div>`
     : h.type === 'drugs' ? `<div class="notice"><h3>Stay safe</h3><p>${claim('drugs.doctor')}</p><p><b>${claim('drugs.tolerance')}</b></p><div class="row"><button data-go="help">See help lines</button></div></div>`
@@ -637,11 +889,11 @@ function habitScreen() {
   // DDD 7.7: the reward form is open only while there's no reward yet, or after "+ Add another reward"
   const showRewardForm = !h.rewards.length || view.rewardOpen;
   return `
-    <header class="top"><button class="ghost" data-go="home">← All habits</button>${tagFor(h)}</header>
+    <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}All habits</button>${tagFor(h)}</header>
     <div class="detail-grid">
       <div class="col">
         <div class="card">
-          <div class="habit-head"><span class="tile lg">${pixel(habitIcon(h), 44)}</span>
+          <div class="habit-head"><span class="tile lg">${glyph(habitIcon(h), 40)}</span>
             <div class="brand"><span class="eyebrow">Started ${niceDate(h.start)}</span><h1>${esc(h.name)}</h1>
               ${view.iconOpen ? '' : '<button class="link small" data-act="iconopen">Change icon</button>'}</div></div>
           ${view.iconOpen ? `<div class="icon-panel"><p class="small muted">Pick a new icon.</p>${picker(HABIT_ICONS, habitIcon(h), 'habit')}
@@ -707,7 +959,7 @@ function bounceScreen() {
   const serious = h.type === 'drinking' || h.type === 'gambling' || h.type === 'drugs' || h.type === 'cannabis';
   return `<div class="narrow">
     <div class="card">
-      <div class="habit-head"><span class="tile md">${pixel(habitIcon(h), 32)}</span><span class="eyebrow">${esc(h.name)}</span></div>
+      <div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>
       <h1>A slip is one day, not the whole story.</h1>
       <p>It's normal to feel bad about it. What matters now is the next choice, and you've already shown you can do this.</p>
       <div class="kept">
@@ -737,7 +989,7 @@ function addScreen() {
   const alcohol = type === 'drinking', gambling = type === 'gambling', drugs = type === 'drugs', cannabis = type === 'cannabis';
   const namePlaceholder = { drinking: 'Evening beers', smoking: 'Cigarettes', vaping: 'Vape', drugs: 'Habit A', cannabis: 'Habit A' }[type] || 'My habit';
   return `<div class="narrow">
-    <header class="top"><button class="ghost" data-go="home">← Back</button></header>
+    <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button></header>
     <h1>Add a habit</h1>
     <form id="addForm" class="card">
       <label>What are you stopping?<select id="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
@@ -789,6 +1041,10 @@ const COUNTRIES = {
         quit: () => claim('help.SG.quit'), gambling: () => claim('help.SG.gambling'), drugs: () => claim('help.SG.drugs') },
   XX: { name: 'Somewhere else', currency: 'PHP', directory: () => claim('help.directory') },
 };
+// Emergency numbers for the big Call buttons (ADR 0007 rule 19). Each must appear in that country's emergency claim; a test checks it.
+const DIAL = { PH: [['Emergency', '911']], US: [['Emergency', '911']], GB: [['Emergency', '999']], AU: [['Triple Zero', '000']], CA: [['Emergency', '911']],
+  SG: [['Ambulance', '995'], ['Police', '999']] };
+Object.entries(DIAL).forEach(([code, d]) => { COUNTRIES[code].dial = d; });
 const TZ_COUNTRY = {
   'Asia/Manila': 'PH', 'Asia/Singapore': 'SG', 'Europe/London': 'GB', 'Europe/Belfast': 'GB',
   'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US', 'America/Phoenix': 'US',
@@ -827,7 +1083,7 @@ function countryPicker(selected) {
 function countryScreen() {
   const first = view.first;
   return `<div class="narrow">
-    ${first ? '' : '<header class="top"><button class="ghost" data-go="help">← Back</button></header>'}
+    ${first ? '' : `<header class="top"><button class="ghost back" data-go="help">${glyph('arrow-left', 18)}Back</button></header>`}
     <div class="card">
       ${first ? `<span class="eyebrow">Welcome to Steady</span>` : ''}
       <h1>Where are you?</h1>
@@ -841,7 +1097,7 @@ function countryScreen() {
 
 function helpScreen() {
   const line = (label, num, note) => `<div class="help-line"><div class="label"><span class="small muted">${label}</span><span class="phone">${num}</span>${note ? `<span class="small muted">${note}</span>` : ''}</div>
-    <div class="row"><button class="ghost" data-copy="${num}">Copy</button><a class="btn ghost" href="tel:${num.replace(/[^0-9+]/g, '')}">Call</a></div></div>`;
+    <div class="row"><button class="ghost" data-copy="${num}" aria-label="Copy ${num}">${glyph('copy', 16)}Copy</button><a class="btn call" href="tel:${num.replace(/[^0-9+]/g, '')}">${glyph('ui:phone', 16)}Call</a></div></div>`;
   const lines = c => c.lines.map(l => line(...l)).join('');
   const c = country();
   const site = (s, label) => `<a href="${s}" target="_blank" rel="noopener">${label || s.replace(/^https:\/\/(www\.)?|\/$/g, '')}</a>`;
@@ -855,19 +1111,23 @@ function helpScreen() {
     return `<section class="card"><h2>${title}</h2><p class="small muted">${k.about}</p>${lines(k)}${extra(k)}</section>`;
   };
   return `
-    <header class="top"><button class="ghost" data-go="home">← Back</button></header>
+    <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button></header>
     <div class="brand"><h1>Get help</h1>
-      <p class="muted">If you're in danger right now, call ${emergencyText(c)}.</p>
       <p class="small">Help lines for: <b>${c.name}</b> · <button class="link" data-go="country">Change</button></p></div>
+    <section class="card urgent" aria-label="Emergency"><span class="eyebrow">Emergency</span><h2>In danger right now?</h2>
+      <p>If you're in danger right now, call ${emergencyText(c)}.</p>
+      ${(c.dial || []).map(([label, num]) => line(label, num)).join('')}
+    </section>
+    ${c.crisis ? `<section class="card crisis" aria-label="Crisis support"><h2 class="with-ic"><span class="dot" aria-hidden="true"></span>Crisis support</h2>
+      <p class="small muted">Someone to talk to. ${c.crisis().about}</p>${lines(c.crisis())}${c.crisis().chat ? `<p class="small">${c.crisis().chat}</p>` : ''}</section>` : ''}
     <div class="help-grid">
-      ${c.crisis ? `<section class="card"><h2>Crisis support</h2><p class="small muted">${c.crisis().about}</p>${lines(c.crisis())}${c.crisis().chat ? `<p class="small">${c.crisis().chat}</p>` : ''}</section>` : ''}
       ${c.directory ? `<section class="card"><h2>Find a help line near you</h2><p class="small muted">${c.directory().about}</p><p>${site(c.directory().site)}</p><p class="small muted">It's a directory, not a help line. If you're in danger, call your local emergency number first.</p></section>` : ''}
       ${kind('Quit smoking or vaping', c.quit, k => `${k.text ? `<p class="small">Or text <b>${k.text[0]}</b> to <span class="num">${k.text[1]}</span>.</p>` : ''}${more(k) ? `<p class="small">${more(k)}</p>` : ''}`)}
       ${kind('Gambling', c.gambling, k => `<p class="small">${more(k)}${notEmergency}</p>`)}
       ${kind('Drug use', c.drugs, k => `<p class="small">${more(k)}${notEmergency}</p>`)}
       <section class="card"><h2>Alcohol</h2><p>${claim('alcohol.doctor')} Get emergency help right away for: ${claim('alcohol.emergency').join(', ').toLowerCase()}.</p></section>
     </div>
-    <p class="small muted">Numbers checked between 30 Oct and 10 Nov 2026. Confirm them again before a public launch.</p>`;
+    <p class="small muted">Every number re-checked against official sources on 10 Nov 2026. Confirm them again before a public launch.</p>`;
 }
 
 // ---------- events ----------
@@ -947,6 +1207,31 @@ function bind() {
     }));
     planForm.addEventListener('submit', e => { e.preventDefault(); readPlan(); toast(submitPlan()); });
   }
+  // journal (DDD 7.10): the draft lives in view.jdraft so a re-render never loses typed text
+  const jdraft = () => (view.jdraft ||= { mood: 0, note: '', habits: [], ...(state.journal[view.jday || todayKey()] || {}) });
+  app.querySelectorAll('[data-jmood]').forEach(b => b.addEventListener('click', () => go('journal', { jdraft: { ...jdraft(), mood: Number(b.dataset.jmood) } })));
+  // Picking a mood updates the circles in place (no re-render), so the selection animates smoothly and typed text stays put.
+  app.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => {
+    const n = Number(b.dataset.mood); jdraft().note = val('jNote'); jdraft().mood = n;
+    app.querySelectorAll('[data-mood]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const low = document.getElementById('lowMood');
+    if (low) { low.innerHTML = n === 1 ? lowMoodNotice() : ''; low.querySelectorAll('[data-go]').forEach(x => x.addEventListener('click', () => go(x.dataset.go))); }
+  }));
+  app.querySelectorAll('[data-jtag]').forEach(b => b.addEventListener('click', () => {
+    const d = jdraft(); d.note = val('jNote'); const id = b.dataset.jtag;
+    d.habits = d.habits.includes(id) ? d.habits.filter(x => x !== id) : [...d.habits, id];
+    b.setAttribute('aria-pressed', String(d.habits.includes(id)));
+  }));
+  document.getElementById('jNote')?.addEventListener('input', () => { jdraft().note = val('jNote'); });
+  const journalForm = document.getElementById('journalForm');
+  if (journalForm) journalForm.addEventListener('submit', e => {
+    e.preventDefault(); const d = jdraft(); d.note = val('jNote');
+    const msg = saveJournal(view.jday || todayKey(), d);
+    if (msg === 'Saved to your journal') { view.jdraft = { ...state.journal[view.jday || todayKey()] }; view.confirmJRemove = null; render(); }
+    toast(msg);
+  });
+  app.querySelectorAll('[data-jedit]').forEach(b => b.addEventListener('click', () => go('journal', { jday: b.dataset.jedit })));
+  app.querySelectorAll('[data-jremove]').forEach(b => b.addEventListener('click', () => removeJournal(b.dataset.jremove)));
   app.querySelectorAll('[data-planremove]').forEach(b => b.addEventListener('click', () => removePlan(Number(b.dataset.planremove))));
   app.querySelectorAll('[data-why]').forEach(b => b.addEventListener('click', () => {
     const h = habitById(view.id); if (!h) return;
@@ -991,6 +1276,8 @@ function act(a) {
   if (a === 'planclose') { view.planOpen = false; view.planOwn = false; view.planDraft = null; render(); }
   if (a === 'planown') { view.planOwn = true; render(); }
   if (a === 'planlist') { view.planOwn = false; render(); }
+  if (a === 'jtoday') go('journal');
+  if (a === 'theme') { state.theme = isDark() ? 'light' : 'dark'; applyTheme(); save(); render(); }
   if (a === 'delete') {
     if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
     state.habits = state.habits.filter(h => h.id !== view.id); save(); go('home'); toast('Habit deleted');
@@ -1014,9 +1301,11 @@ if (IS_SITE && !state.siteFresh) { // once: clear demo examples saved before thi
   state.habits = state.habits.filter(h => !h.example); state.examples = false; state.demoOffsetDays = 0; state.siteFresh = true; save();
 }
 state.habits.forEach(plansOf); // older single-plan habits move into the list (DDD 7.8)
+if (!state.journal || typeof state.journal !== 'object' || Array.isArray(state.journal)) state.journal = {}; // saves from before the journal (DDD 7.10)
 if (location.hash === '#help') view = { name: 'help' };
 else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
 else view = afterShortcut(shortcut);
+applyTheme();
 render();
 </script>
 
