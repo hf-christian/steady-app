@@ -232,6 +232,9 @@ legend.hint { width: 100%; }
 .mood[aria-pressed="true"] .face { transform: scale(1.04); }
 /* note field with an icon, rounded habit chips, a wide "Log mood" button */
 .field-ic { position: relative; display: block; }
+.pass-field { display: flex; gap: 8px; align-items: center; }
+.pass-field input { flex: 1; min-width: 0; }
+.pass-field .pass-show { flex: none; }
 .field-ic .ic { position: absolute; left: 14px; top: 14px; color: var(--muted); pointer-events: none; }
 .field-ic textarea { padding-left: 42px; min-height: 96px; border-radius: var(--radius-md); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
@@ -512,6 +515,8 @@ const CURRENCIES = ['PHP', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'JPY', 'INR
 // for Lucide are held by Lucide Contributors 2022. Permission to use, copy, modify, and/or distribute this software for any purpose with or
 // without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies. https://lucide.dev/license
 const LUCIDE = {
+  'eye': '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  'eye-off': '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
   'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   'copy': '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
@@ -1080,17 +1085,27 @@ function backupDue() {
 // It never names a habit or mentions the journal (ADR 0012).
 const backupCard = () => backupDue() ? `<div class="notice soft"><h3>Back up your progress?</h3><p class="small">Clearing your browser can erase it.</p>
   <div class="row"><button data-act="backupnow">Back up now</button><button class="ghost" data-act="backupsnooze">Not now</button></div></div>` : '';
+// A password box with a Show / Hide button (Mark, 2026-11-12), so the user can check what they typed. It switches in place, keeping the text.
+const showLabel = shown => `${glyph(shown ? 'ui:eye-off' : 'ui:eye', 18)}<span>${shown ? 'Hide' : 'Show'}</span>`;
+const passField = (id, auto, ph = '') => `<div class="pass-field"><input id="${id}" type="password" autocomplete="${auto}"${ph ? ` placeholder="${ph}"` : ''}>
+  <button type="button" class="ghost pass-show" data-showpass="${id}" aria-pressed="false" aria-label="Show password">${showLabel(false)}</button></div>`;
+function togglePass(button, input) {
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  button.setAttribute('aria-pressed', String(show)); button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  button.innerHTML = showLabel(show);
+}
 function dataCard() {
   const r = view.restore;
   const restore = r?.data ? `<div class="notice soft"><p>This replaces what's on this phone with your backup from ${r.made ? niceDate(r.made) : 'an unknown date'}.</p>
       <div class="row"><button class="danger" data-act="restore">${r.confirm ? 'Tap again to restore' : 'Restore'}</button><button class="ghost" data-act="restorecancel">Cancel</button></div></div>`
-    : r?.needPassword ? `<form id="restoreForm"><label class="small" for="rPass">This backup is locked. Enter its password.</label><input id="rPass" type="password" autocomplete="current-password">
+    : r?.needPassword ? `<form id="restoreForm"><label class="small" for="rPass">This backup is locked. Enter its password.</label>${passField('rPass', 'current-password')}
       <div class="row"><button type="submit" class="primary">Open backup</button><button type="button" class="ghost" data-act="restorecancel">Cancel</button></div></form>`
     : '<div class="row"><button type="button" data-act="restorepick">Restore from backup</button></div><input id="rFile" type="file" accept=".json,.txt,application/json,text/plain" hidden>';
   return `<section class="card" id="dataCard"><h2>Your data</h2>
     <p class="small muted">Everything Steady keeps is stored in this browser. Clearing your browser data erases it, so keep a backup file somewhere safe.</p>
     ${isDay(state.lastBackup) ? `<p class="small muted">Last backup: ${niceDate(state.lastBackup)}</p>` : ''}
-    <form id="backupForm"><label class="small" for="bPass">Password (optional)</label><input id="bPass" type="password" autocomplete="new-password" placeholder="Leave empty for no password">
+    <form id="backupForm"><label class="small" for="bPass">Password (optional)</label>${passField('bPass', 'new-password', 'Leave empty for no password')}
       <p class="small muted">Without a password, anyone who opens the file can read it. A forgotten password can't be recovered.</p>
       <button type="submit" class="primary">Back up my data</button>${view.backupNote ? `<p class="small muted" role="status">${esc(view.backupNote)}</p>` : ''}</form>
     <h3>Restore</h3>${restore}</section>`;
@@ -1619,6 +1634,9 @@ function bind() {
     let text = ''; try { if (f.size < 5e6) text = await f.text(); } catch { /* unreadable: treated as not a backup */ }
     const msg = await openBackup(text); if (msg) toast(msg);
   });
+  app.querySelectorAll('[data-showpass]').forEach(b => b.addEventListener('click', () => {
+    const i = document.getElementById(b.dataset.showpass); if (i) togglePass(b, i);
+  }));
   const restoreForm = document.getElementById('restoreForm');
   if (restoreForm) restoreForm.addEventListener('submit', async e => {
     e.preventDefault(); const msg = await openBackup(view.restore?.text || '', val('rPass')); if (msg) toast(msg);
