@@ -216,7 +216,8 @@ textarea { min-height: 110px; resize: vertical; }
 legend.hint { width: 100%; }
 /* five soft circles: each mood has its own gentle tint, the same in shape in both themes */
 .moods { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); justify-items: center; }
-.mood { flex-direction: column; gap: 10px; padding: 4px 0; min-height: 0; width: 100%; background: none; border: 0; box-shadow: none; color: var(--muted); font-size: 0.78rem; font-weight: 700; border-radius: var(--radius-md); }
+/* faces line up along the top; a two-line word ("Very low" on a phone) wraps downward instead of pushing its face up */
+.mood { flex-direction: column; justify-content: flex-start; gap: 10px; padding: 4px 0; min-height: 0; width: 100%; background: none; border: 0; box-shadow: none; color: var(--muted); font-size: 0.78rem; font-weight: 700; border-radius: var(--radius-md); }
 .mood:hover, .mood[aria-pressed="true"] { background: none; border: 0; }
 .mood .disc { width: min(58px, 100%); aspect-ratio: 1; }
 .disc { display: grid; place-items: center; border-radius: var(--pill); background: var(--mood-bg, var(--subtle)); border: 1.5px solid transparent; flex: none;
@@ -226,7 +227,7 @@ legend.hint { width: 100%; }
 .mood:hover .disc { transform: translateY(-2px); }
 .mood[aria-pressed="true"] .disc { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), var(--shadow-sm); transform: scale(1.06); }
 .mood[aria-pressed="true"] .word { color: var(--ink); }
-.mood .word { transition: color .28s var(--ease); }
+.mood .word { transition: color .28s var(--ease); line-height: 1.2; text-align: center; }
 .face { display: inline-block; vertical-align: middle; flex: none; transition: transform .28s var(--ease); }
 .mood[aria-pressed="true"] .face { transform: scale(1.04); }
 /* note field with an icon, rounded habit chips, a wide "Log mood" button */
