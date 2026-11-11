@@ -239,6 +239,8 @@ legend.hint { width: 100%; }
 .wide { width: 100%; min-height: 52px; font-size: 1rem; }
 .row.center { justify-content: center; }
 #lowMood:empty { display: none; }
+#jOtherWrap { display: block; margin-top: 10px; }
+#jOtherWrap[hidden] { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .entry { display: flex; flex-direction: column; gap: 4px; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .entry:first-of-type { border-top: 0; }
@@ -846,10 +848,26 @@ const MOODS = [[1, '😞', 'Very low'], [2, '🙁', 'Low'], [3, '😐', 'Okay'],
 const NOTE_MAX = 1000;
 const faceImg = (n, px = 36) => pixel(`mood${n}`, px, true).replace('class="px"', 'class="px face"');
 const moodOf = n => MOODS.find(m => m[0] === n);
-function saveJournal(key, { mood, note = '', habits = [] }) {
+// "What was going on?" (DDD 8.2): feelings and situations the user picks. They describe the moment, never the person.
+const JTRIGGERS = [['stressed', 'Stressed'], ['bored', 'Bored'], ['tired', 'Tired'], ['lonely', 'Lonely'], ['with-others', 'With others'], ['argument', 'After an argument'], ['celebrating', 'Celebrating'], ['other', 'Other']];
+const triggersOf = e => (Array.isArray(e?.triggers) ? e.triggers : []).filter(t => JTRIGGERS.some(([id]) => id === t)); // older entries have none
+// "Other" in the user's own words (DDD 8.2): only kept while Other is picked. Patterns (8.3) never read it.
+const OTHER_MAX = 80;
+const otherTextOf = e => (triggersOf(e).includes('other') && typeof e.otherText === 'string' ? e.otherText.trim().slice(0, OTHER_MAX) : '');
+// Ready for HTML: the chip words are fixed, and the Other words are escaped.
+const triggerWords = e => triggersOf(e).map(t => t === 'other' && otherTextOf(e) ? `Other (${esc(otherTextOf(e))})` : JTRIGGERS.find(([id]) => id === t)[1]).join(', ');
+function saveJournal(key, { mood, note = '', habits = [], triggers = [], otherText = '' }) {
   if (!moodOf(Number(mood))) return 'Pick how you feel first';
-  state.journal[key] = { mood: Number(mood), note: String(note).slice(0, NOTE_MAX), habits: habits.filter(id => habitById(id)) };
+  const picked = [...new Set(triggersOf({ triggers }))];
+  const other = otherTextOf({ triggers: picked, otherText: String(otherText ?? '') });
+  state.journal[key] = { mood: Number(mood), note: String(note).slice(0, NOTE_MAX), habits: habits.filter(id => habitById(id)), triggers: picked, ...(other ? { otherText: other } : {}) };
   save(); return 'Saved to your journal';
+}
+// A good save goes back home (DDD 7.10), which clears the draft and the day being edited.
+function submitJournal(d) {
+  const msg = saveJournal(view.jday || todayKey(), d);
+  if (msg === 'Saved to your journal') go('home');
+  return msg;
 }
 function removeJournal(key) {
   if (view.confirmJRemove !== key) { view.confirmJRemove = key; render(); return; }
@@ -875,7 +893,8 @@ function lowMoodNotice() {
 }
 function journalScreen() {
   const key = view.jday || todayKey();
-  const d = view.jdraft || { mood: 0, note: '', habits: [], ...(state.journal[key] || {}) };
+  const d = view.jdraft || { mood: 0, note: '', habits: [], triggers: [], ...(state.journal[key] || {}) };
+  const picked = triggersOf(d);
   const isToday = key === todayKey();
   const past = Object.keys(state.journal).sort().reverse().filter(k => k !== key);
   const tags = e => e.habits.map(id => habitById(id)).filter(Boolean).map(h => esc(h.name)).join(', ');
@@ -890,6 +909,9 @@ function journalScreen() {
           <label class="field-ic"><span class="sr-only">A few words, if you like</span>${glyph('notebook-pen', 18)}<textarea id="jNote" maxlength="${NOTE_MAX}" placeholder="Add a note (optional)">${esc(d.note)}</textarea></label>
           ${state.habits.length ? `<fieldset><legend class="small muted">About a habit? (optional)</legend>
             <div class="chips">${state.habits.map(h => `<button type="button" class="chip-tag" data-jtag="${h.id}" aria-pressed="${d.habits.includes(h.id)}">${esc(h.name)}</button>`).join('')}</div></fieldset>` : ''}
+          <fieldset><legend class="small muted">What was going on? (optional, pick any)</legend>
+            <div class="chips">${JTRIGGERS.map(([id, word]) => `<button type="button" class="chip-tag" data-jtrig="${id}" aria-pressed="${picked.includes(id)}">${word}</button>`).join('')}</div>
+            <label id="jOtherWrap" ${picked.includes('other') ? '' : 'hidden'}><span class="sr-only">What was going on, in your words</span><input id="jOther" maxlength="${OTHER_MAX}" placeholder="What was going on? (optional)" value="${esc(d.otherText || '')}"></label></fieldset>
           <button type="submit" class="primary wide">${state.journal[key] ? 'Save changes' : 'Log mood'}${glyph('circle-plus', 18)}</button>
           ${!isToday || state.journal[key] ? `<div class="row center">${!isToday ? '<button type="button" class="ghost" data-act="jtoday">Back to today</button>' : ''}
             ${state.journal[key] ? `<button type="button" class="ghost danger" data-jremove="${key}">${view.confirmJRemove === key ? 'Tap again to remove' : 'Remove'}</button>` : ''}</div>` : ''}
@@ -898,7 +920,7 @@ function journalScreen() {
       <section class="card"><h2>Earlier days</h2>
         ${past.length ? past.map(k => { const e = state.journal[k]; const m = moodOf(e.mood);
           return `<div class="entry"><span class="small muted">${niceDate(k)}</span><b>${faceImg(e.mood, 22)} ${m[2]}</b>
-            ${e.note ? `<span>${esc(e.note.split('\n')[0].slice(0, 120))}</span>` : ''}${tags(e) ? `<span class="small muted">About: ${tags(e)}</span>` : ''}
+            ${e.note ? `<span>${esc(e.note.split('\n')[0].slice(0, 120))}</span>` : ''}${tags(e) ? `<span class="small muted">About: ${tags(e)}</span>` : ''}${triggerWords(e) ? `<span class="small muted">What was going on: ${triggerWords(e)}</span>` : ''}
             <div class="row"><button class="ghost" data-jedit="${k}">Edit</button><button class="ghost danger" data-jremove="${k}">${view.confirmJRemove === k ? 'Tap again to remove' : 'Remove'}</button></div></div>`; }).join('')
           : '<p class="small muted">Nothing here yet. Each day you write something, it shows up here.</p>'}
       </section>
@@ -1326,7 +1348,7 @@ function bind() {
     planForm.addEventListener('submit', e => { e.preventDefault(); readPlan(); toast(submitPlan()); });
   }
   // journal (DDD 7.10): the draft lives in view.jdraft so a re-render never loses typed text
-  const jdraft = () => (view.jdraft ||= { mood: 0, note: '', habits: [], ...(state.journal[view.jday || todayKey()] || {}) });
+  const jdraft = () => (view.jdraft ||= { mood: 0, note: '', habits: [], triggers: [], ...(state.journal[view.jday || todayKey()] || {}) });
   app.querySelectorAll('[data-jmood]').forEach(b => b.addEventListener('click', () => go('journal', { jdraft: { ...jdraft(), mood: Number(b.dataset.jmood) } })));
   // Picking a mood updates the circles in place (no re-render), so the selection animates smoothly and typed text stays put.
   app.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => {
@@ -1340,13 +1362,19 @@ function bind() {
     d.habits = d.habits.includes(id) ? d.habits.filter(x => x !== id) : [...d.habits, id];
     b.setAttribute('aria-pressed', String(d.habits.includes(id)));
   }));
+  app.querySelectorAll('[data-jtrig]').forEach(b => b.addEventListener('click', () => {
+    const d = jdraft(); d.note = val('jNote'); const id = b.dataset.jtrig; const now = triggersOf(d);
+    d.triggers = now.includes(id) ? now.filter(x => x !== id) : [...now, id];
+    b.setAttribute('aria-pressed', String(d.triggers.includes(id)));
+    // The Other words box shows or hides in place, like #lowMood, so typed text stays put.
+    if (id === 'other') { const w = document.getElementById('jOtherWrap'); if (w) w.hidden = !d.triggers.includes('other'); }
+  }));
   document.getElementById('jNote')?.addEventListener('input', () => { jdraft().note = val('jNote'); });
+  document.getElementById('jOther')?.addEventListener('input', () => { jdraft().otherText = val('jOther'); });
   const journalForm = document.getElementById('journalForm');
   if (journalForm) journalForm.addEventListener('submit', e => {
-    e.preventDefault(); const d = jdraft(); d.note = val('jNote');
-    const msg = saveJournal(view.jday || todayKey(), d);
-    if (msg === 'Saved to your journal') { view.jdraft = { ...state.journal[view.jday || todayKey()] }; view.confirmJRemove = null; render(); }
-    toast(msg);
+    e.preventDefault(); const d = jdraft(); d.note = val('jNote'); d.otherText = val('jOther');
+    toast(submitJournal(d));
   });
   app.querySelectorAll('[data-jedit]').forEach(b => b.addEventListener('click', () => go('journal', { jday: b.dataset.jedit })));
   app.querySelectorAll('[data-jremove]').forEach(b => b.addEventListener('click', () => removeJournal(b.dataset.jremove)));
