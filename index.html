@@ -244,6 +244,27 @@ legend.hint { width: 100%; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .entry { display: flex; flex-direction: column; gap: 4px; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .entry:first-of-type { border-top: 0; }
+/* calendar (DDD 8.5): same marks as the week strip, so a slip is a gold ring, never coral (coral is for help, ADR 0009) */
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.cal-head h2 { margin: 0; text-align: center; }
+.cal-head button { min-width: 44px; font-size: 1.3rem; line-height: 1; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: var(--s3); }
+.cal .wd { text-align: center; font-size: 0.62rem; font-weight: 700; color: var(--muted); }
+.cday { min-height: 58px; min-width: 0; padding: 5px 2px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; border-radius: var(--radius-md); background: var(--subtle); border: 1.5px solid transparent; box-shadow: none; color: var(--ink); }
+.cday.blank { background: transparent; }
+.cday.is-today { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
+.cday:disabled { opacity: 0.4; cursor: default; }
+.cday .n { font-size: 0.8rem; font-weight: 700; line-height: 1; }
+.dots { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px; min-height: 7px; }
+.dots i, .cal-key i { width: 7px; height: 7px; border-radius: var(--pill); display: inline-block; }
+.dots small { font-size: 0.55rem; color: var(--muted); line-height: 1; }
+.dots i.clean, .cal-key i.clean { background: var(--accent); }
+.dots i.slip, .cal-key i.slip { border: 1.5px solid var(--gold); }
+.dots i.today, .cal-key i.today { background: var(--accent-soft); border: 1.5px solid var(--accent); }
+.cal-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--s3); }
+.cal-key i:not(:first-child) { margin-left: 8px; }
+.chip.slip { background: var(--gold-soft); color: var(--gold); }
+.cal-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .demo { border: 1px dashed var(--line); border-radius: var(--radius); padding: var(--s5); display: flex; flex-direction: column; gap: var(--s3); }
 footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top: var(--s2); }
@@ -496,6 +517,7 @@ const LUCIDE = {
   'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   'moon': '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
   'notebook-pen': '<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
+  'calendar': '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
   'life-buoy': '<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/>',
   'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
   'circle-plus': '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>',
@@ -724,7 +746,7 @@ const habitById = id => state.habits.find(h => h.id === id);
 const footer = `<footer>Steady is a habit support tool, not medical treatment or medical advice. If you think you may be dependent on alcohol or another substance, talk to a doctor.</footer>`;
 
 function render() {
-  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen, journal: journalScreen };
+  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen, journal: journalScreen, calendar: calendarScreen };
   // "Need help now?" on every screen but Get help itself and first launch, which has its own (ADR 0007 rule 17)
   const fab = view.name === 'help' || (view.name === 'country' && view.first) ? '' : '<button class="help-fab" data-go="help">Need help now?</button>';
   app.innerHTML = `<div class="view">${(screens[view.name] || home)()}</div>${footer}${fab}`;
@@ -741,13 +763,14 @@ const runBlock = p => `<div class="run"><span class="big num">${p.run}</span><sp
 // slip is 'clean', today without a slip is 'today' (still going), and days still to come are 'future'.
 const WEEK_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEK_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// One rule for a habit on one day (DDD 8.5), shared by the week strip and the calendar so they always agree.
+const dayState = (h, key, today = todayKey()) => key > today ? 'future' : key < h.start ? 'none' : h.slips.includes(key) ? 'slip' : key < today ? 'clean' : 'today';
+const mondayIndexOf = key => (dayNum(key) + 3) % 7; // day 0 (1 Jan 1970) was a Thursday, so Monday = 0
 function weekDays(h) {
-  const today = todayKey(), slips = new Set(h.slips);
-  const mondayIndex = (dayNum(today) + 3) % 7; // day 0 (1 Jan 1970) was a Thursday, so Monday = 0
+  const today = todayKey(), mondayIndex = mondayIndexOf(today);
   return Array.from({ length: 7 }, (_, i) => {
     const key = addDays(today, i - mondayIndex);
-    const state = key > today ? 'future' : key < h.start ? 'none' : slips.has(key) ? 'slip' : key < today ? 'clean' : 'today';
-    return { key, state, letter: WEEK_LETTERS[i], name: WEEK_NAMES[i] };
+    return { key, state: dayState(h, key, today), letter: WEEK_LETTERS[i], name: WEEK_NAMES[i] };
   });
 }
 const DAY_WORD = { none: 'not started', slip: 'slip', clean: 'clean', today: 'today', future: 'still to come' };
@@ -927,6 +950,70 @@ function journalScreen() {
     </div>`;
 }
 
+// ---------- calendar (DDD 8.5): one month, all habits, read-only ----------
+const monthOf = key => key.slice(0, 7); // 'YYYY-MM'
+const shiftMonth = (m, n) => { const [y, mo] = m.split('-').map(Number); const t = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}`; };
+const monthName = m => new Date(dayNum(`${m}-01`) * 86400000).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const longDate = key => new Date(dayNum(key) * 86400000).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+// Weeks run Monday to Sunday, like the week strip. Blank cells (null) fill the days before the 1st and after the last day.
+function monthGrid(m) {
+  const first = `${m}-01`, cells = Array(mondayIndexOf(first)).fill(null);
+  for (let k = first; monthOf(k) === m; k = addDays(k, 1)) cells.push(k);
+  while (cells.length % 7) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
+}
+// Everything the calendar shows for one day. Nothing new is stored.
+const calendarDay = (key, today = todayKey()) => ({
+  key, future: key > today, entry: state.journal[key] || null,
+  habits: state.habits.map(h => ({ h, state: dayState(h, key, today), why: (h.slipWhy || {})[key] || '' })),
+});
+const CAL_SHOWN = ['clean', 'slip', 'today'];
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+// The spoken label, so colour is never the only cue: "Tuesday, 4 November: 2 clean, 1 slip, mood Low".
+function calLabel(d) {
+  const n = s => d.habits.filter(x => x.state === s).length;
+  const parts = [n('clean') && `${n('clean')} clean`, n('slip') && plural(n('slip'), 'slip'), n('today') && `${n('today')} still going`, d.entry && `mood ${moodOf(d.entry.mood)[2]}`].filter(Boolean);
+  return `${longDate(d.key)}${d.future ? ', still to come' : parts.length ? `: ${parts.join(', ')}` : ': nothing logged'}`;
+}
+function calCell(key, today, sel) {
+  if (!key) return '<span class="cday blank" aria-hidden="true"></span>';
+  const d = calendarDay(key, today), shown = d.habits.filter(x => CAL_SHOWN.includes(x.state));
+  const dots = shown.slice(0, 4).map(x => `<i class="${x.state}"></i>`).join('') + (shown.length > 4 ? `<small>+${shown.length - 4}</small>` : '');
+  return `<button type="button" class="cday${key === today ? ' is-today' : ''}" data-cday="${key}" aria-pressed="${key === sel}" aria-label="${esc(calLabel(d))}"${d.future ? ' disabled' : ''}>
+    <span class="n">${Number(key.slice(8))}</span><span class="dots" aria-hidden="true">${dots}</span>${d.entry ? `<span class="cmood" aria-hidden="true">${faceImg(d.entry.mood, 14)}</span>` : ''}</button>`;
+}
+const CAL_WORD = { clean: ['Clean', 'claimed'], slip: ['Slip', 'slip'], today: ['Clean so far', 'todo'], none: ['Not started yet', 'todo'] };
+function calPanel(key) {
+  const d = calendarDay(key), e = d.entry;
+  const habits = d.habits.length ? d.habits.map(({ h, state: s, why }) => `<div class="item"><div class="label"><b>${esc(h.name)}</b>${s === 'slip' && why ? `<span class="small muted">${esc(why)}</span>` : ''}</div>
+      <span class="chip ${CAL_WORD[s][1]}">${CAL_WORD[s][0]}</span></div>`).join('') : '<p class="small muted">No habits yet.</p>';
+  const about = e ? e.habits.map(id => habitById(id)).filter(Boolean).map(h => esc(h.name)).join(', ') : '';
+  const journal = e ? `<div class="entry"><b>${faceImg(e.mood, 22)} ${moodOf(e.mood)[2]}</b>
+      ${triggerWords(e) ? `<span class="small muted">What was going on: ${triggerWords(e)}</span>` : ''}${about ? `<span class="small muted">About: ${about}</span>` : ''}
+      ${e.note ? `<span class="cal-note">${esc(e.note)}</span>` : ''}</div>` : '<p class="small muted">No journal entry for this day.</p>';
+  return `<section class="card" id="calDay" aria-live="polite"><h2>${longDate(key)}</h2>${habits}
+    <h3>Journal</h3>${journal}<div class="row"><button class="ghost" data-jedit="${key}">${glyph('notebook-pen', 18)}${e ? "Edit this day's journal" : 'Add a journal entry'}</button></div></section>`;
+}
+function calendarScreen() {
+  const today = todayKey(), now = monthOf(today);
+  const m = view.month && view.month <= now ? view.month : now;
+  const sel = 'cday' in view ? view.cday : today;
+  const back = view.from && habitById(view.from) ? `data-open="${esc(view.from)}"` : 'data-go="home"';
+  return `
+    <header class="top"><button class="ghost back" ${back}>${glyph('arrow-left', 18)}Back</button></header>
+    <div class="brand"><h1>Calendar</h1><p class="small muted">Every habit and your journal, one day at a time.</p></div>
+    <div class="detail-grid">
+      <section class="card">
+        <div class="cal-head"><button type="button" class="ghost" data-act="calprev" aria-label="Previous month">‹</button><h2>${monthName(m)}</h2>
+          <button type="button" class="ghost" data-act="calnext" aria-label="Next month"${m >= now ? ' disabled' : ''}>›</button></div>
+        <div class="cal" role="group" aria-label="${monthName(m)}">${WEEK_LETTERS.map(l => `<span class="wd" aria-hidden="true">${l}</span>`).join('')}
+          ${monthGrid(m).flat().map(k => calCell(k, today, sel)).join('')}</div>
+        <p class="small muted cal-key"><i class="clean"></i> Clean <i class="slip"></i> Slip <i class="today"></i> Today, still going</p>
+      </section>
+      ${sel && sel <= today && monthOf(sel) === m ? calPanel(sel) : '<section class="card"><p class="small muted">Tap a day to see how it went.</p></section>'}
+    </div>`;
+}
+
 function reminderCard() {
   const phone = state.habits.some(h => h.type === 'phone');
   return `<section class="card"><h3>Remind me daily</h3>
@@ -962,7 +1049,7 @@ function home() {
   return `
     <header class="top">
       <div class="brand">${themeSwitch()}<span class="eyebrow">${niceDate(todayKey())}${state.demoOffsetDays ? ` · demo +${state.demoOffsetDays}d` : ''}</span><h1>Steady</h1></div>
-      <div class="row"><button class="ghost" data-go="journal">${glyph('notebook-pen', 18)}Journal</button><button class="urgent-btn" data-go="help">${glyph('life-buoy', 18)}Get help</button><button class="primary side-add" data-go="add">${glyph('plus', 18)}Add a habit</button></div>
+      <div class="row"><button class="ghost" data-go="journal">${glyph('notebook-pen', 18)}Journal</button><button class="ghost" data-go="calendar">${glyph('calendar', 18)}Calendar</button><button class="urgent-btn" data-go="help">${glyph('life-buoy', 18)}Get help</button><button class="primary side-add" data-go="add">${glyph('plus', 18)}Add a habit</button></div>
     </header>
     <div class="home-grid">
       <div class="col">
@@ -1022,6 +1109,7 @@ function habitScreen() {
           ${view.iconOpen ? `<div class="icon-panel"><p class="small muted">Pick a new icon.</p>${picker(HABIT_ICONS, habitIcon(h), 'habit')}
             <div class="row"><button class="ghost" data-act="iconclose">Done</button></div></div>` : ''}
           ${runBlock(p)}${statsBlock(h, p)}
+          <button class="link small" data-act="calendar">See calendar</button>
           ${h.cost > 0 ? `<p class="small muted">Based on your estimate of ${money(h.cost, h.currency)} a day.</p>` : ''}
           ${p.slipToday ? '<p class="small muted">You logged a slip today. Your new run starts now.</p>' : '<button class="danger" data-act="slip">I slipped today</button>'}
         </div>
@@ -1376,6 +1464,10 @@ function bind() {
     e.preventDefault(); const d = jdraft(); d.note = val('jNote'); d.otherText = val('jOther');
     toast(submitJournal(d));
   });
+  app.querySelectorAll('[data-cday]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.cday > todayKey()) return; // days still to come can't be opened
+    view.cday = b.dataset.cday; render();
+  }));
   app.querySelectorAll('[data-jedit]').forEach(b => b.addEventListener('click', () => go('journal', { jday: b.dataset.jedit })));
   app.querySelectorAll('[data-jremove]').forEach(b => b.addEventListener('click', () => removeJournal(b.dataset.jremove)));
   app.querySelectorAll('[data-planremove]').forEach(b => b.addEventListener('click', () => removePlan(Number(b.dataset.planremove))));
@@ -1424,6 +1516,12 @@ function act(a) {
   if (a === 'planown') { view.planOwn = true; render(); }
   if (a === 'planlist') { view.planOwn = false; render(); }
   if (a === 'jtoday') go('journal');
+  if (a === 'calendar') go('calendar', { from: view.name === 'habit' ? view.id : null });
+  if (a === 'calprev' || a === 'calnext') {
+    const now = monthOf(todayKey()), m = shiftMonth(view.month || now, a === 'calprev' ? -1 : 1);
+    if (m > now) return;
+    view.month = m; view.cday = m === now ? todayKey() : null; render();
+  }
   if (a === 'theme') { state.theme = isDark() ? 'light' : 'dark'; applyTheme(); save(); render(); }
   if (a === 'delete') {
     if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
