@@ -705,7 +705,22 @@ function load() {
   try { const raw = localStorage.getItem(STORE_KEY); if (raw) return JSON.parse(raw); } catch { /* storage blocked */ }
   return null;
 }
-function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* keep going in memory */ } }
+function save() {
+  // The first save with real data (DDD 8.6): note the day, for the backup reminder, and quietly ask the browser to keep the data.
+  if (!state.dataSince && hasRealData()) { state.dataSince = todayKey(); keepData(); }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* keep going in memory */ }
+}
+// Real data means a habit the user added or any journal entry, not only the examples.
+function hasRealData() { return state.habits.some(h => !h.example) || Object.keys(state.journal || {}).length > 0; }
+// Lowers the chance the browser clears the data by itself. It can't stop the user clearing it; the backup file covers that.
+function keepData() { try { navigator.storage?.persist?.()?.catch?.(() => {}); } catch { /* not supported */ } }
+// The tidy-up done at start, also used on a restored backup: older single-plan habits move into the list (DDD 7.8), and saves from before the journal (DDD 7.10) get one.
+function tidyState(s) {
+  const t = { demoOffsetDays: 0, ...s };
+  t.habits.forEach(plansOf);
+  if (!t.journal || typeof t.journal !== 'object' || Array.isArray(t.journal)) t.journal = {};
+  return t;
+}
 // Light or dark: dark is the default (Mark, 2026-11-11), whatever the phone is set to, until the user taps the switch. Then their choice is kept (state.theme).
 const isDark = () => state.theme !== 'light';
 function applyTheme() {
@@ -835,11 +850,12 @@ function reminderIcs(time, startKey, stamp = new Date()) {
     'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${REMINDER_TITLE.replace(/[,;]/g, m => `\\${m}`)}`, 'TRIGGER:PT0M', 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
 }
-function downloadReminder(time) {
+const downloadReminder = time => downloadFile('steady-reminder.ics', reminderIcs(time, keyOf(new Date())), 'text/calendar');
+function downloadFile(name, text, type) {
   try {
-    const file = new Blob([reminderIcs(time, keyOf(new Date()))], { type: 'text/calendar' });
+    const file = new Blob([text], { type });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(file); a.download = 'steady-reminder.ics';
+    a.href = URL.createObjectURL(file); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     return true;
@@ -924,7 +940,7 @@ function journalScreen() {
   const tags = e => e.habits.map(id => habitById(id)).filter(Boolean).map(h => esc(h.name)).join(', ');
   return `
     <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button></header>
-    <div class="brand"><h1>Journal</h1><p class="small muted">Your journal stays on this phone. Steady never reads or sends it.</p></div>
+    <div class="brand"><h1>Journal</h1><p class="small muted">Your journal stays on this phone. It only leaves when you save a backup yourself.</p></div>
     <div class="detail-grid">
       <section class="card mood-card"><h2>${isToday ? 'How are you feeling?' : `How you felt on ${niceDate(key)}`}</h2>
         <form id="journalForm">
@@ -948,7 +964,123 @@ function journalScreen() {
             <div class="row"><button class="ghost" data-jedit="${k}">Edit</button><button class="ghost danger" data-jremove="${k}">${view.confirmJRemove === k ? 'Tap again to remove' : 'Remove'}</button></div></div>`; }).join('')
           : '<p class="small muted">Nothing here yet. Each day you write something, it shows up here.</p>'}
       </section>
+      ${dataCard()}
     </div>`;
+}
+
+// ---------- backup and restore (DDD 8.6, ADR 0012): a file the user keeps. The app never sends it anywhere itself. ----------
+// File: { app: 'steady', version, made, data: state }. Locked: data is the state, sealed with AES-GCM under a key made from the password (PBKDF2-SHA-256).
+const BACKUP_VERSION = 1;
+const BACKUP_ROUNDS = 310000;
+const NOT_BACKUP = "That file isn't a Steady backup";
+const WRONG_PASSWORD = "That password didn't open it";
+const isDay = k => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
+const toB64 = bytes => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s); };
+const fromB64 = s => Uint8Array.from(atob(String(s)), c => c.charCodeAt(0));
+async function backupKey(password, salt) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: BACKUP_ROUNDS }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+// Everything the app stores, as { name, text }. The copy inside the file already records this backup's date.
+async function makeBackup(password = '') {
+  const made = todayKey();
+  const data = { ...state, lastBackup: made };
+  const file = { app: 'steady', version: BACKUP_VERSION, made };
+  if (password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const sealed = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await backupKey(password, salt), new TextEncoder().encode(JSON.stringify(data)));
+    Object.assign(file, { locked: true, lock: 'PBKDF2-SHA-256 310000, AES-GCM-256', salt: toB64(salt), iv: toB64(iv), data: toB64(new Uint8Array(sealed)) });
+  } else file.data = data;
+  return { name: `steady-backup-${made}.json`, text: JSON.stringify(file) };
+}
+// A backup can be edited by hand, so check every field that ends up on screen or in the page before trusting it.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,40}$/;
+const knownIcon = i => i === undefined || !!(HABIT_ICONS[i] || REWARD_ICONS[i] || LUCIDE[i]);
+function backupDataOk(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d) || !Array.isArray(d.habits)) return false;
+  const rewardOk = r => r && typeof r === 'object' && SAFE_ID.test(r.id) && typeof r.name === 'string' && Number.isFinite(r.target) && knownIcon(r.icon);
+  const habitOk = h => h && typeof h === 'object' && SAFE_ID.test(h.id) && typeof h.name === 'string' && isDay(h.start)
+    && Array.isArray(h.slips) && h.slips.every(isDay) && (h.rewards === undefined || (Array.isArray(h.rewards) && h.rewards.every(rewardOk)))
+    && knownIcon(h.icon) && (h.cost === undefined || Number.isFinite(h.cost)) && (h.currency === undefined || /^[A-Z]{3}$/.test(h.currency))
+    && (h.slipWhy === undefined || (h.slipWhy && typeof h.slipWhy === 'object' && Object.entries(h.slipWhy).every(([k, v]) => isDay(k) && typeof v === 'string')));
+  const j = d.journal ?? {};
+  const entryOk = ([k, e]) => isDay(k) && e && typeof e === 'object' && moodOf(e.mood) && (e.note === undefined || typeof e.note === 'string')
+    && (e.habits === undefined || (Array.isArray(e.habits) && e.habits.every(id => typeof id === 'string')));
+  const daysOk = ['lastBackup', 'dataSince', 'backupSnooze', 'checkin'].every(k => d[k] === undefined || d[k] === null || isDay(d[k]));
+  return d.habits.every(habitOk) && typeof j === 'object' && !Array.isArray(j) && Object.entries(j).every(entryOk) && daysOk
+    && (d.demoOffsetDays === undefined || Number.isInteger(d.demoOffsetDays));
+}
+// Reads a backup file's text. Returns { data, made }, { needPassword }, or { error } with a plain message. Never changes the phone.
+async function readBackup(text, password = '') {
+  let f; try { f = JSON.parse(text); } catch { return { error: NOT_BACKUP }; }
+  if (!f || typeof f !== 'object' || f.app !== 'steady' || !Number.isInteger(f.version) || f.version < 1) return { error: NOT_BACKUP };
+  if (f.version > BACKUP_VERSION) return { error: 'This backup is from a newer version of Steady' };
+  let data = f.data;
+  if (f.locked) {
+    if (!password) return { needPassword: true };
+    try {
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(f.iv) }, await backupKey(password, fromB64(f.salt)), fromB64(f.data));
+      data = JSON.parse(new TextDecoder().decode(plain));
+    } catch { return { error: WRONG_PASSWORD, needPassword: true }; } // AES-GCM also refuses a damaged file here
+  }
+  if (!backupDataOk(data)) return { error: NOT_BACKUP };
+  const s = tidyState(data);
+  s.habits.forEach(h => { if (!Array.isArray(h.rewards)) h.rewards = []; });
+  Object.values(s.journal).forEach(e => { if (!Array.isArray(e.habits)) e.habits = []; if (typeof e.note !== 'string') e.note = ''; });
+  return { data: s, made: isDay(f.made) ? f.made : null };
+}
+// On phones that can share files, the share sheet opens (Files, Drive, email). Otherwise the file downloads. Returns false if nothing was saved.
+async function saveFile(name, text) {
+  try {
+    const file = new File([text], name, { type: 'application/json' });
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Steady backup' }); return true; }
+  } catch (e) { if (e?.name === 'AbortError') return false; } // the user closed the share sheet; any other problem falls back to a download
+  return downloadFile(name, text, 'application/json');
+}
+async function backUp(password = '') {
+  let f; try { f = await makeBackup(password); } catch { return "This browser couldn't lock the file. Try without a password"; }
+  if (!(await saveFile(f.name, f.text))) return 'Backup not saved';
+  state.lastBackup = todayKey(); delete state.backupSnooze; save(); render();
+  return 'Backup saved. Keep the file somewhere safe';
+}
+// Step 1 of restoring: read the picked file and show what happens next. Returns a message for the toast, or ''.
+async function openBackup(text, password = '') {
+  const r = await readBackup(text, password);
+  view.restore = r.data ? { data: r.data, made: r.made } : r.needPassword ? { text, needPassword: true } : null;
+  render();
+  return r.error || '';
+}
+// Step 2: two taps, like removing an entry. The state object is refilled in place, so nothing keeps a stale copy.
+function restoreBackup() {
+  const r = view.restore; if (!r?.data) return;
+  if (!r.confirm) { r.confirm = true; render(); return; }
+  Object.keys(state).forEach(k => delete state[k]); Object.assign(state, r.data);
+  save(); applyTheme(); go('home'); toast('Your data is back');
+}
+// The weekly reminder on home: real data, no backup (or first real save) in 7 days, and not hidden in the last 7 days.
+function backupDue() {
+  const since = state.lastBackup || state.dataSince, today = dayNum(todayKey());
+  if (!hasRealData() || !isDay(since)) return false;
+  if (isDay(state.backupSnooze) && today - dayNum(state.backupSnooze) < 7) return false;
+  return today - dayNum(since) >= 7;
+}
+// It never names a habit or mentions the journal (ADR 0012).
+const backupCard = () => backupDue() ? `<div class="notice soft"><h3>Back up your progress?</h3><p class="small">Clearing your browser can erase it.</p>
+  <div class="row"><button data-act="backupnow">Back up now</button><button class="ghost" data-act="backupsnooze">Not now</button></div></div>` : '';
+function dataCard() {
+  const r = view.restore;
+  const restore = r?.data ? `<div class="notice soft"><p>This replaces what's on this phone with your backup from ${r.made ? niceDate(r.made) : 'an unknown date'}.</p>
+      <div class="row"><button class="danger" data-act="restore">${r.confirm ? 'Tap again to restore' : 'Restore'}</button><button class="ghost" data-act="restorecancel">Cancel</button></div></div>`
+    : r?.needPassword ? `<form id="restoreForm"><label class="small" for="rPass">This backup is locked. Enter its password.</label><input id="rPass" type="password" autocomplete="current-password">
+      <div class="row"><button type="submit" class="primary">Open backup</button><button type="button" class="ghost" data-act="restorecancel">Cancel</button></div></form>`
+    : '<div class="row"><button type="button" data-act="restorepick">Restore from backup</button></div><input id="rFile" type="file" accept=".json,application/json" hidden>';
+  return `<section class="card" id="dataCard"><h2>Your data</h2>
+    <p class="small muted">Everything Steady keeps is stored in this browser. Clearing your browser data erases it, so keep a backup file somewhere safe.</p>
+    ${isDay(state.lastBackup) ? `<p class="small muted">Last backup: ${niceDate(state.lastBackup)}</p>` : ''}
+    <form id="backupForm"><label class="small" for="bPass">Password (optional)</label><input id="bPass" type="password" autocomplete="new-password" placeholder="Leave empty for no password">
+      <p class="small muted">Without a password, anyone who opens the file can read it. A forgotten password can't be recovered.</p>
+      <button type="submit" class="primary">Back up my data</button></form>
+    <h3>Restore</h3>${restore}</section>`;
 }
 
 // ---------- calendar (DDD 8.5): one month, all habits, read-only ----------
@@ -1057,6 +1189,7 @@ function home() {
         ${samsungNote()}
         ${checkinCard()}
         ${journalCard()}
+        ${backupCard()}
         ${state.habits.length ? `<div class="cards">${cards}</div>` : `<div class="card"><h2>Start with one habit</h2><p class="muted">Add something you want to stop. Steady counts your clean days, your money saved and the rewards you set for yourself.</p></div>`}
         <button class="primary mobile-add" data-go="add">${glyph('plus', 18)}Add a habit</button>
       </div>
@@ -1465,6 +1598,18 @@ function bind() {
     e.preventDefault(); const d = jdraft(); d.note = val('jNote'); d.otherText = val('jOther');
     toast(submitJournal(d));
   });
+  // backup and restore (DDD 8.6)
+  const backupForm = document.getElementById('backupForm');
+  if (backupForm) backupForm.addEventListener('submit', async e => { e.preventDefault(); toast(await backUp(val('bPass'))); });
+  document.getElementById('rFile')?.addEventListener('change', async e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    let text = ''; try { if (f.size < 5e6) text = await f.text(); } catch { /* unreadable: treated as not a backup */ }
+    const msg = await openBackup(text); if (msg) toast(msg);
+  });
+  const restoreForm = document.getElementById('restoreForm');
+  if (restoreForm) restoreForm.addEventListener('submit', async e => {
+    e.preventDefault(); const msg = await openBackup(view.restore?.text || '', val('rPass')); if (msg) toast(msg);
+  });
   app.querySelectorAll('[data-cday]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.cday > todayKey()) return; // days still to come can't be opened
     view.cday = b.dataset.cday; render();
@@ -1523,6 +1668,11 @@ function act(a) {
     if (m > now) return;
     view.month = m; view.cday = m === now ? todayKey() : null; render();
   }
+  if (a === 'restorepick') document.getElementById('rFile')?.click?.();
+  if (a === 'restore') restoreBackup();
+  if (a === 'restorecancel') { view.restore = null; render(); }
+  if (a === 'backupsnooze') { state.backupSnooze = todayKey(); save(); render(); }
+  if (a === 'backupnow') { go('journal'); document.getElementById('dataCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
   if (a === 'theme') { state.theme = isDark() ? 'light' : 'dark'; applyTheme(); save(); render(); }
   if (a === 'delete') {
     if (!view.confirmDelete) { view.confirmDelete = true; render(); return; }
@@ -1540,14 +1690,12 @@ function afterShortcut(sc) {
   return { name: 'home' };
 }
 const saved = load();
-if (saved && Array.isArray(saved.habits)) state = { demoOffsetDays: 0, ...saved };
+if (saved && Array.isArray(saved.habits)) state = tidyState(saved);
 else if (!IS_SITE) { state.habits = exampleHabits(); save(); } // the claude.ai demo starts with examples
 else state.examples = false;                                      // the installed app starts fresh
 if (IS_SITE && !state.siteFresh) { // once: clear demo examples saved before this rule; real habits are never touched
   state.habits = state.habits.filter(h => !h.example); state.examples = false; state.demoOffsetDays = 0; state.siteFresh = true; save();
 }
-state.habits.forEach(plansOf); // older single-plan habits move into the list (DDD 7.8)
-if (!state.journal || typeof state.journal !== 'object' || Array.isArray(state.journal)) state.journal = {}; // saves from before the journal (DDD 7.10)
 if (location.hash === '#help') view = { name: 'help' };
 else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
 else view = afterShortcut(shortcut);
