@@ -1030,10 +1030,13 @@ async function readBackup(text, password = '') {
   return { data: s, made: isDay(f.made) ? f.made : null };
 }
 // On phones that can share files, the share sheet opens (Files, Drive, email). Otherwise the file downloads. Returns false if nothing was saved.
+// Chrome on Android only shares files on its safe list, which has .txt but not .json, so the same backup is offered as plain text there.
+// Restore reads what's inside, so either name works.
 async function saveFile(name, text) {
   try {
-    const file = new File([text], name, { type: 'application/json' });
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Steady backup' }); return true; }
+    const files = [new File([text], name, { type: 'application/json' }), new File([text], name.replace(/\.json$/, '.txt'), { type: 'text/plain' })];
+    const file = files.find(f => navigator.canShare?.({ files: [f] }));
+    if (file) { await navigator.share({ files: [file], title: 'Steady backup' }); return true; }
   } catch (e) { if (e?.name === 'AbortError') return false; } // the user closed the share sheet; any other problem falls back to a download
   return downloadFile(name, text, 'application/json');
 }
@@ -1073,7 +1076,7 @@ function dataCard() {
       <div class="row"><button class="danger" data-act="restore">${r.confirm ? 'Tap again to restore' : 'Restore'}</button><button class="ghost" data-act="restorecancel">Cancel</button></div></div>`
     : r?.needPassword ? `<form id="restoreForm"><label class="small" for="rPass">This backup is locked. Enter its password.</label><input id="rPass" type="password" autocomplete="current-password">
       <div class="row"><button type="submit" class="primary">Open backup</button><button type="button" class="ghost" data-act="restorecancel">Cancel</button></div></form>`
-    : '<div class="row"><button type="button" data-act="restorepick">Restore from backup</button></div><input id="rFile" type="file" accept=".json,application/json" hidden>';
+    : '<div class="row"><button type="button" data-act="restorepick">Restore from backup</button></div><input id="rFile" type="file" accept=".json,.txt,application/json,text/plain" hidden>';
   return `<section class="card" id="dataCard"><h2>Your data</h2>
     <p class="small muted">Everything Steady keeps is stored in this browser. Clearing your browser data erases it, so keep a backup file somewhere safe.</p>
     ${isDay(state.lastBackup) ? `<p class="small muted">Last backup: ${niceDate(state.lastBackup)}</p>` : ''}

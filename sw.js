@@ -1,5 +1,5 @@
 // Steady service worker. Version changes whenever the app changes, so old copies are cleared.
-const CACHE = 'steady-122e021f3922';
+const CACHE = 'steady-7ed19bd3f96a';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
