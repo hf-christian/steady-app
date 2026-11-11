@@ -1032,19 +1032,29 @@ async function readBackup(text, password = '') {
 // On phones that can share files, the share sheet opens (Files, Drive, email). Otherwise the file downloads. Returns false if nothing was saved.
 // Chrome on Android only shares files on its safe list, which has .txt but not .json, so the same backup is offered as plain text there.
 // Restore reads what's inside, so either name works.
+// Returns 'shared', 'downloaded:<why the share sheet didn't open>', or '' if nothing was saved.
 async function saveFile(name, text) {
+  let why = 'noshare';
   try {
-    const files = [new File([text], name, { type: 'application/json' }), new File([text], name.replace(/\.json$/, '.txt'), { type: 'text/plain' })];
-    const file = files.find(f => navigator.canShare?.({ files: [f] }));
-    if (file) { await navigator.share({ files: [file], title: 'Steady backup' }); return true; }
-  } catch (e) { if (e?.name === 'AbortError') return false; } // the user closed the share sheet; any other problem falls back to a download
-  return downloadFile(name, text, 'application/json');
+    if (navigator.canShare) {
+      const files = [new File([text], name, { type: 'application/json' }), new File([text], name.replace(/\.json$/, '.txt'), { type: 'text/plain' })];
+      const file = files.find(f => navigator.canShare({ files: [f] }));
+      if (file) { await navigator.share({ files: [file], title: 'Steady backup' }); return 'shared'; }
+      why = 'type';
+    }
+  } catch (e) { if (e?.name === 'AbortError') return ''; why = String(e?.name || 'error').replace(/[^A-Za-z]/g, ''); } // closed by the user; anything else downloads
+  return downloadFile(name, text, 'application/json') ? `downloaded:${why}` : '';
 }
+// Shown on the "Your data" card as well as the toast, so a phone test shows what happened.
+const SAVED_HOW = { noshare: "Backup downloaded. This browser can't open the share sheet for files.", type: "Backup downloaded. This browser won't share this kind of file." };
 async function backUp(password = '') {
   let f; try { f = await makeBackup(password); } catch { return "This browser couldn't lock the file. Try without a password"; }
-  if (!(await saveFile(f.name, f.text))) return 'Backup not saved';
-  state.lastBackup = todayKey(); delete state.backupSnooze; save(); render();
-  return 'Backup saved. Keep the file somewhere safe';
+  const how = await saveFile(f.name, f.text);
+  if (!how) return 'Backup not saved';
+  const why = how.split(':')[1];
+  const msg = how === 'shared' ? 'Backup saved. Keep the file somewhere safe' : SAVED_HOW[why] || `Backup downloaded. The share sheet didn't open (${why}).`;
+  state.lastBackup = todayKey(); delete state.backupSnooze; save(); view.backupNote = msg; render();
+  return msg;
 }
 // Step 1 of restoring: read the picked file and show what happens next. Returns a message for the toast, or ''.
 async function openBackup(text, password = '') {
@@ -1082,7 +1092,7 @@ function dataCard() {
     ${isDay(state.lastBackup) ? `<p class="small muted">Last backup: ${niceDate(state.lastBackup)}</p>` : ''}
     <form id="backupForm"><label class="small" for="bPass">Password (optional)</label><input id="bPass" type="password" autocomplete="new-password" placeholder="Leave empty for no password">
       <p class="small muted">Without a password, anyone who opens the file can read it. A forgotten password can't be recovered.</p>
-      <button type="submit" class="primary">Back up my data</button></form>
+      <button type="submit" class="primary">Back up my data</button>${view.backupNote ? `<p class="small muted" role="status">${esc(view.backupNote)}</p>` : ''}</form>
     <h3>Restore</h3>${restore}</section>`;
 }
 
