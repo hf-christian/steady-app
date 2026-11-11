@@ -1030,16 +1030,16 @@ async function readBackup(text, password = '') {
   return { data: s, made: isDay(f.made) ? f.made : null };
 }
 // On phones that can share files, the share sheet opens (Files, Drive, email). Otherwise the file downloads. Returns false if nothing was saved.
-// Chrome on Android only shares files on its safe list, which has .txt but not .json, so the same backup is offered as plain text there.
-// Restore reads what's inside, so either name works.
+// Chrome on Android only shares files on its safe list, which has .txt but not .json. Its canShare() says yes to a .json file anyway and
+// share() then refuses it (NotAllowedError, seen on Mark's phone 2026-11-12), so the share sheet only ever gets the .txt copy.
+// A download keeps the .json name. Restore reads what's inside, so either name works.
 // Returns 'shared', 'downloaded:<why the share sheet didn't open>', or '' if nothing was saved.
 async function saveFile(name, text) {
   let why = 'noshare';
   try {
     if (navigator.canShare) {
-      const files = [new File([text], name, { type: 'application/json' }), new File([text], name.replace(/\.json$/, '.txt'), { type: 'text/plain' })];
-      const file = files.find(f => navigator.canShare({ files: [f] }));
-      if (file) { await navigator.share({ files: [file], title: 'Steady backup' }); return 'shared'; }
+      const file = new File([text], name.replace(/\.json$/, '.txt'), { type: 'text/plain' });
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Steady backup' }); return 'shared'; }
       why = 'type';
     }
   } catch (e) { if (e?.name === 'AbortError') return ''; why = String(e?.name || 'error').replace(/[^A-Za-z]/g, ''); } // closed by the user; anything else downloads
