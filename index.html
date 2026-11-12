@@ -244,6 +244,8 @@ legend.hint { width: 100%; }
 .row.center { justify-content: center; }
 #lowMood:empty { display: none; }
 #jOtherWrap { display: block; margin-top: 10px; }
+.timer-journal { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s3); }
+.timer-journal h3 { margin: 0; }
 #jOtherWrap[hidden] { display: none; }
 .why-other { display: block; margin-top: 10px; }
 /* craving timer (DDD 8.4): a progress ring round the time, and a breathing circle behind it (in 4, hold 5, out 6) */
@@ -260,6 +262,17 @@ legend.hint { width: 100%; }
 .half { text-align: center; font-weight: 700; color: var(--accent); }
 .half:empty { display: none; }
 .crave-btn { width: 100%; }
+/* DDD 8.8: the user's own reason on the timer, and a full-screen "Done" that can be read from across a room */
+.reason { text-align: center; margin: var(--s3) 0 0; display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+.reason p { margin: 0; }
+.reason-photo { display: block; max-width: 100%; max-height: 33vh; border-radius: 12px; object-fit: cover; }
+.reason-list .reason-photo { max-width: 96px; max-height: 96px; flex: none; }
+.done-full { position: fixed; inset: 0; z-index: 14; width: 100%; border: 0; border-radius: 0; margin: 0; background: var(--accent); color: var(--accent-ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s3); padding: 24px 16px; text-align: center; font: inherit; cursor: pointer; }
+.done-full .ic { width: 96px; height: 96px; }
+.done-full .done-big { display: block; font-size: 3.5rem; font-weight: 700; line-height: 1.1; }
+.done-full .done-sub { display: block; font-size: 1.5rem; }
+.done-full .done-go { display: inline-block; margin-top: var(--s3); border: 2px solid currentColor; border-radius: var(--pill); padding: 10px 28px; font-weight: 700; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .entry { display: flex; flex-direction: column; gap: 4px; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .entry:first-of-type { border-top: 0; }
@@ -319,6 +332,8 @@ footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top
   .habit { transition: box-shadow .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
   .habit:hover { transform: translateY(-2px); }
   .bar > i { animation: fill .7s var(--ease) both; }
+  .done-full { animation: fadein .4s var(--ease); }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   .mood[aria-pressed="true"] .face { animation: settle .36s var(--ease); }
   @keyframes settle { 0% { transform: scale(.9); } 60% { transform: scale(1.1); } 100% { transform: scale(1.04); } }
@@ -781,7 +796,8 @@ function load() {
 function save() {
   // The first save with real data (DDD 8.6): note the day, for the backup reminder, and quietly ask the browser to keep the data.
   if (!state.dataSince && hasRealData()) { state.dataSince = todayKey(); keepData(); }
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* keep going in memory */ }
+  // Returns false only when the phone's storage is full; blocked storage keeps going in memory, as before.
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); return true; } catch (e) { return !/quota/i.test(e?.name || ''); }
 }
 // Real data means a habit the user added or any journal entry, not only the examples.
 function hasRealData() { return state.habits.some(h => !h.example) || Object.keys(state.journal || {}).length > 0; }
@@ -1116,6 +1132,8 @@ function backupDataOk(d) {
     && (h.slipWhy === undefined || (h.slipWhy && typeof h.slipWhy === 'object' && Object.entries(h.slipWhy).every(([k, v]) => isDay(k)
       && (typeof v === 'string' || (Array.isArray(v) && v.every(t => JTRIGGERS.some(([id]) => id === t)))))))
     && (h.cravings === undefined || (Array.isArray(h.cravings) && h.cravings.every(isDay)))
+    && (h.reasons === undefined || (Array.isArray(h.reasons) && h.reasons.length <= MAX_REASONS && h.reasons.every(r => r && typeof r === 'object' && SAFE_ID.test(r.id)
+      && (r.text === undefined || (typeof r.text === 'string' && r.text.length <= REASON_MAX)) && (r.photo === undefined || typeof r.photo === 'string'))))
     && (h.slipOther === undefined || (h.slipOther && typeof h.slipOther === 'object' && Object.entries(h.slipOther).every(([k, v]) => isDay(k) && typeof v === 'string' && v.length <= OTHER_MAX)));
   const j = d.journal ?? {};
   const entryOk = ([k, e]) => isDay(k) && e && typeof e === 'object' && moodOf(e.mood) && (e.note === undefined || typeof e.note === 'string')
@@ -1125,6 +1143,7 @@ function backupDataOk(d) {
     && (d.demoOffsetDays === undefined || Number.isInteger(d.demoOffsetDays))
     && (d.craving == null || (typeof d.craving === 'object' && SAFE_ID.test(d.craving.id) && Number.isFinite(d.craving.start) && [5, 15].includes(d.craving.mins)))
     && (d.patternReminder === undefined || typeof d.patternReminder === 'boolean')
+    && (d.lastCrave === undefined || (typeof d.lastCrave === 'string' && SAFE_ID.test(d.lastCrave))) && (d.reasonTurn === undefined || Number.isInteger(d.reasonTurn))
     && ['cardHidden', 'patternHidden'].every(k => d[k] === undefined || (d[k] && typeof d[k] === 'object' && !Array.isArray(d[k]) && Object.values(d[k]).every(isDay)));
 }
 // Reads a backup file's text. Returns { data, made }, { needPassword }, or { error } with a plain message. Never changes the phone.
@@ -1143,6 +1162,8 @@ async function readBackup(text, password = '') {
   if (!backupDataOk(data)) return { error: NOT_BACKUP };
   const s = tidyState(data);
   s.habits.forEach(h => { if (!Array.isArray(h.rewards)) h.rewards = []; });
+  // DDD 8.8: a photo that isn't a JPEG data URL is dropped; a reason left with nothing in it goes.
+  s.habits.forEach(h => { if (Array.isArray(h.reasons)) h.reasons = h.reasons.map(r => (photoOk(r.photo) ? r : { id: r.id, ...(r.text ? { text: r.text } : {}) })).filter(r => r.text || r.photo); });
   Object.values(s.journal).forEach(e => { if (!Array.isArray(e.habits)) e.habits = []; if (typeof e.note !== 'string') e.note = ''; });
   return { data: s, made: isDay(f.made) ? f.made : null };
 }
@@ -1639,6 +1660,7 @@ function habitScreen() {
         ${healthCard(h, p)}
         ${tipsCard(h)}
         ${planCard(h)}
+        ${reasonsCard(h)}
         <div class="row"><button class="ghost danger" data-act="delete">${view.confirmDelete ? 'Tap again to delete this habit' : 'Delete habit'}</button></div>
       </div>
       <div class="col">
@@ -1726,18 +1748,26 @@ const cravingNow = () => { const c = state.craving; return c && habitById(c.id) 
 // A wait still going: started, not finished, and not stopped by leaving the app.
 const waitRunning = () => { const c = cravingNow(); return !!c && !c.done && !c.stopped; };
 // more: "Wait 5 more minutes" carries on the same craving, so it doesn't count a second one (QA B12, Mark 2026-11-13).
-function startCraving(id, mins, more) {
-  const h = habitById(id); if (!h) return;
-  state.craving = { id: h.id, start: clockMs(), mins: mins || craveMins(h), ...(more ? { more: true } : {}) };
-  save(); go('craving');
+// DDD 8.8: lastCrave is the habit used last, so "Craving?" starts at once next time; ri picks a different reason each wait.
+function newCraving(id, mins, more) {
+  const h = habitById(id); if (!h) return false;
+  state.lastCrave = h.id;
+  if (!more) state.reasonTurn = (state.reasonTurn || 0) + 1;
+  state.craving = { id: h.id, start: clockMs(), mins: mins || craveMins(h), ri: state.reasonTurn || 0, ...(more ? { more: true } : {}) };
+  save(); return true;
 }
+function startCraving(id, mins, more) { if (newCraving(id, mins, more)) go('craving'); }
+// Which habit "Craving?" starts on (DDD 8.8): with one habit, that one; otherwise the one used last. Never used yet: null, so the app asks once.
+const craveHabit = () => (state.habits.length === 1 ? state.habits[0].id : habitById(state.lastCrave)?.id || null);
 // A finished wait counts once for that habit ("Cravings ridden out"). It never changes streaks, clean days or money.
 // buzz: a gentle buzz when the timer reaches 0 on screen, where the phone can (nothing where it can't).
 function finishCraving(buzz) {
   const c = cravingNow(); if (!c || c.done || c.stopped) return;
   const h = habitById(c.id);
   if (!c.more) h.cravings = [...(h.cravings || []), todayKey()];
-  c.done = true; delete c.leftAt; delete c.helpAt; save();
+  c.done = true; delete c.leftAt; delete c.helpAt;
+  if (buzz) c.doneShow = true; // DDD 8.8: the full-screen "Done", only when the timer reached 0 on screen
+  save();
   if (buzz) { try { navigator.vibrate?.([120, 80, 120]); } catch { /* no buzz */ } }
 }
 // Leaving the app (switching apps, the home screen, locking the phone, closing it): back within 90 seconds and the wait
@@ -1794,12 +1824,85 @@ function craveTick() {
   el('craveRing')?.setAttribute?.('stroke-dashoffset', ringOffset());
   const w = el('breathWord'); if (w) w.textContent = breathWord(Math.floor(craveSecs()));
   const hl = el('craveHalf'); if (hl && halfway()) hl.textContent = HALFWAY;
+  // DDD 8.8: one short buzz as the halfway line appears, once per wait. Coming back long after halfway: no buzz.
+  if (halfway() && !c.halfBuzz) {
+    c.halfBuzz = true; save();
+    if (craveLeft() > c.mins * 30000 - 3000) { try { navigator.vibrate?.(150); } catch { /* no buzz */ } }
+  }
   // Remember when the app was last seen with the timer, in case it closes without saying so.
   if (!c.seenAt || clockMs() - c.seenAt >= 5000) { c.seenAt = clockMs(); save(); }
   const next = 1000 - ((clockMs() - c.start) % 1000);
   craveTimer = setTimeout(craveTick, next < 50 ? next + 1000 : next); craveTimer?.unref?.();
 }
 const ridden = h => (h.cravings || []).length;
+// DDD 8.8: "My reasons": up to 3 per habit, each a line of text, a photo, or both. Stored only on this phone.
+// Text is always escaped; a photo is only ever shown if it's a JPEG data URL (what shrinkPhoto makes).
+const MAX_REASONS = 3, REASON_MAX = 100;
+const PHOTO_OK = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+const photoOk = p => typeof p === 'string' && PHOTO_OK.test(p);
+const reasonsOf = h => (Array.isArray(h.reasons) ? h.reasons : []).filter(r => r && (r.text || photoOk(r.photo)));
+function reasonBlock(h, c) {
+  const rs = reasonsOf(h); if (!rs.length) return '';
+  const r = rs[(c.ri || 0) % rs.length];
+  // Every reason carries the "Your reason" label, a photo-only one too (Mark, 2026-11-13).
+  return `<div class="reason"><span class="eyebrow">Your reason</span>${photoOk(r.photo) ? `<img class="reason-photo" src="${r.photo}" alt="Your photo">` : ''}${r.text ? `<p><b>${esc(r.text)}</b></p>` : ''}</div>`;
+}
+// A photo is shrunk on the phone (longest side 640 px, JPEG) before it's kept. Drawing it again also drops hidden data such as GPS location.
+async function shrinkPhoto(file, max = 640) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(img.naturalWidth * k)); cv.height = Math.max(1, Math.round(img.naturalHeight * k));
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const out = cv.toDataURL('image/jpeg', 0.8);
+    if (!photoOk(out)) throw new Error('not a JPEG');
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+// Saves a new or edited reason. If the phone's storage is full, the photo is left out and the words are kept.
+function storeReason(h, id, text, photo) {
+  if (!text && !photoOk(photo)) return 'empty';
+  h.reasons = Array.isArray(h.reasons) ? h.reasons : [];
+  const old = id === 'new' ? null : h.reasons.find(r => r.id === id);
+  if (!old && h.reasons.length >= MAX_REASONS) return 'full';
+  const r = { id: old?.id || uid(), ...(text ? { text: text.slice(0, REASON_MAX) } : {}), ...(photoOk(photo) ? { photo } : {}) };
+  if (old) h.reasons[h.reasons.indexOf(old)] = r; else h.reasons.push(r);
+  if (save()) return 'ok';
+  delete r.photo;
+  if (!r.text) h.reasons = h.reasons.filter(x => x !== r);
+  save(); return 'nophoto';
+}
+function reasonsCard(h) {
+  const rs = reasonsOf(h), d = view.reasonDraft || {};
+  const form = view.reasonEdit ? `<form id="reasonForm">
+      <label>Your reason<input id="reasonText" maxlength="${REASON_MAX}" value="${esc(d.text || '')}" placeholder="I want to run with my kids."></label>
+      ${photoOk(d.photo) ? `<img class="reason-photo" src="${d.photo}" alt="Your photo"><div class="row"><button type="button" class="ghost" data-act="reasonnophoto">Remove photo</button></div>` : ''}
+      <label>${photoOk(d.photo) ? 'Change photo' : 'Add a photo (optional)'}<input id="reasonPhoto" type="file" accept="image/*"></label>
+      <p class="small muted">Words, a photo, or both. They stay on this phone.</p>
+      <div class="row"><button type="submit" class="primary">Save reason</button><button type="button" class="ghost" data-act="reasonclose">Cancel</button></div></form>` : '';
+  const list = rs.map(r => `<div class="item reason-list">${photoOk(r.photo) ? `<img class="reason-photo" src="${r.photo}" alt="Your photo">` : ''}<div class="label"><b>${esc(r.text || '')}</b></div>
+      <button class="ghost" data-act="reasonedit:${r.id}">Edit</button><button class="ghost" data-act="reasondel:${r.id}">${view.confirmReason === r.id ? 'Tap again to delete' : 'Delete'}</button></div>`).join('');
+  return `<section class="card" id="reasonsCard"><h2>My reasons</h2><p class="small muted">Why this matters to you. One shows on the craving timer.</p>
+    <div class="list">${list || '<p class="muted small">No reasons yet.</p>'}</div>
+    ${form || (rs.length < MAX_REASONS ? '<div class="row"><button data-act="reasonnew">+ Add a reason</button></div>' : '')}</section>`;
+}
+// Today's journal, written on the timer while the wait carries on (Mark, 2026-11-13). Same mood faces, chips and note as
+// the journal page, saved to today's entry and tagged to this habit. Saving or Cancel stays on the timer.
+function timerJournal(h) {
+  const d = view.jdraft || { mood: 0, note: '', habits: [], triggers: [] }, picked = triggersOf(d);
+  return `<form id="journalForm" class="timer-journal"><h3>Today's journal</h3>
+      <fieldset><legend class="eyebrow hint">Tap a face</legend>${moodPicker('data-mood', d.mood)}</fieldset>
+      <div id="lowMood" aria-live="polite">${d.mood === 1 ? lowMoodNotice() : ''}</div>
+      <fieldset><legend class="small muted">What was going on? (optional, pick any)</legend>
+        <div class="chips">${JTRIGGERS.map(([id, word]) => `<button type="button" class="chip-tag" data-jtrig="${id}" aria-pressed="${picked.includes(id)}">${word}</button>`).join('')}</div>
+        <label id="jOtherWrap" ${picked.includes('other') ? '' : 'hidden'}><span class="sr-only">What was going on, in your words</span><input id="jOther" maxlength="${OTHER_MAX}" placeholder="What was going on? (optional)" value="${esc(d.otherText || '')}"></label></fieldset>
+      <label class="field-ic"><span class="sr-only">A few words, if you like</span>${glyph('notebook-pen', 18)}<textarea id="jNote" maxlength="${NOTE_MAX}" placeholder="Add a note (optional)">${esc(d.note || '')}</textarea></label>
+      <p class="small muted">Saved to today's journal, about ${esc(h.name)}. The timer keeps going.</p>
+      <div class="row"><button type="submit" class="primary">${state.journal[todayKey()] ? 'Save changes' : 'Save to journal'}</button><button type="button" class="ghost" data-act="cravejournalx">Cancel</button></div>
+    </form>`;
+}
 function cravingScreen() {
   const c = cravingNow(); if (!c) return home();
   if (!c.done && !c.stopped && craveLeft() <= 0) finishCraving();
@@ -1814,6 +1917,7 @@ function cravingScreen() {
       <div class="row"><button class="primary" data-act="cravestart">Start again</button><button data-act="craveend">Back home</button></div>`
     : c.done
     ? `<h1>You rode it out.</h1><p>That's ${plural(ridden(h), 'craving')} ridden out for ${esc(h.name)}.</p>
+      ${reasonBlock(h, c)}
       <div class="row"><button class="primary" data-act="cravemore">Wait 5 more minutes</button><button data-act="craveend">Back home</button></div>`
     : `<h1>Let's wait this out together.</h1>
       ${line ? `<p>${line[0]} <span class="small muted">(<a href="${esc(src[1])}" target="_blank" rel="noopener">${esc(src[0])}</a>)</span></p>` : ''}
@@ -1822,17 +1926,24 @@ function cravingScreen() {
         <div class="breath${reduceMotion() ? ' still' : ''}" style="animation-delay:-${(((sec % 15) + 15) % 15).toFixed(1)}s" aria-hidden="true"></div>
         <div class="crave-time" role="timer" aria-label="Time left"><b id="craveLeft">${mmss(craveLeft())}</b><span class="small muted">left of ${c.mins} minutes</span></div>
       </div>
+      ${reasonBlock(h, c)}
       <p class="breath-word" id="breathWord">${breathWord(Math.floor(sec))}</p>
       ${bt ? `<p class="small muted breath-src">${esc(bt.text)} (<a href="${esc(bt.url)}" target="_blank" rel="noopener">${esc(bt.source)}</a>)</p>` : ''}
       <p class="half" id="craveHalf">${halfway() ? HALFWAY : ''}</p>
       <div class="row center"><button class="ghost" data-act="cravestop">Stop</button></div>`;
-  return `<div class="narrow">${ask}
-    <div class="card"><div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>${top}</div>
+  // DDD 8.8: the timer starts first; the habit can be changed after, without leaving the timer.
+  const others = state.habits.filter(x => x.id !== h.id);
+  const swap = !waitRunning() || !others.length ? ''
+    : view.swap ? `<div class="row">${others.map(x => `<button data-act="craveto:${x.id}">${esc(x.name)}</button>`).join('')}<button class="ghost" data-act="craveswapx">Cancel</button></div>`
+    : '<p class="small muted">Not this habit? <button class="link small" data-act="craveswap">Change</button></p>';
+  const doneFull = c.done && c.doneShow ? `<button class="done-full" data-act="donecontinue">${glyph('check', 96)}<span class="done-big">Done.</span><span class="done-sub">You rode it out.</span><span class="done-go">Continue</span></button>` : '';
+  return `<div class="narrow">${doneFull}${ask}
+    <div class="card"><div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>${swap}${top}</div>
     ${c.stopped ? '' : `<section class="card"><h2>${c.done ? 'If it comes back' : 'While you wait'}</h2>
       ${tip ? `${tip.general ? '<span class="eyebrow">General tip</span>' : ''}<p><b>${esc(tip.text)}</b> <span class="small muted">(<a href="${esc(tip.url)}" target="_blank" rel="noopener">${esc(tip.source)}</a>)</span></p>
       ${tips.length > 1 ? '<div class="row"><button class="ghost" data-act="craveanother">Another tip</button></div>' : ''}` : ''}
       ${planLine(h)}${rewardLine(h)}
-      <div class="row"><button data-act="cravejournal">Add to today's journal</button></div>
+      ${view.jopen ? timerJournal(h) : '<div class="row"><button data-act="cravejournal">Add to today\'s journal</button></div>'}
       <p class="small muted">A craving is not a slip. Nothing is logged unless you tap.</p></section>`}</div>`;
 }
 // On home: the "Craving?" button under the Today card, or the one-pick "Which habit?".
@@ -1919,6 +2030,10 @@ function addScreen() {
         <label>First reward<input id="rName" maxlength="60" value="${esc(d.rName || '')}" placeholder="Concert ticket"></label>
         <label>At clean days<input id="rTarget" type="number" min="1" step="1" inputmode="numeric" value="${esc(d.rTarget || '')}" placeholder="7"></label>
       </div>
+      <label>Why does this matter to you? (optional)<input id="why" maxlength="100" value="${esc(d.why || '')}" placeholder="I want to run with my kids."></label>
+      ${photoOk(d.whyPhoto) ? `<img class="reason-photo" src="${d.whyPhoto}" alt="Your photo"><div class="row"><button type="button" class="ghost" id="whyNoPhoto">Remove photo</button></div>` : ''}
+      <label>${photoOk(d.whyPhoto) ? 'Change photo' : 'Add a photo (optional)'}<input id="whyPhoto" type="file" accept="image/*"></label>
+      <p class="small muted">Words, a photo, or both. It shows on the craving timer, and you can add more on the habit's page. It stays on this phone.</p>
       ${alcohol ? `<div class="notice" role="alert"><h3>Talk to a doctor first if you drink heavily or every day</h3>
         <p>${claim('alcohol.withdrawal')} A doctor can help you stop safely.${cite('alcohol.withdrawal')}</p>
         <p><b>Get emergency help right away</b> for any of these:</p>
@@ -2046,7 +2161,7 @@ function helpScreen() {
 // ---------- events ----------
 // Stay with the wait (DDD 8.4): a way off the timer screen while a wait runs asks first. Get help never asks and never
 // stops the wait (helpAt marks it, so a call from there doesn't stop it either). Buttons that stay on the timer don't ask.
-const STAY_ACTS = new Set(['cravestop', 'craveanother', 'cravemore', 'craveend', 'cravestart', 'keepwait', 'leavewait']);
+const STAY_ACTS = new Set(['cravestop', 'craveanother', 'cravemore', 'craveend', 'cravestart', 'keepwait', 'leavewait', 'craveswap', 'craveswapx', 'donecontinue', 'cravejournal', 'cravejournalx']);
 let pendingLeave = null, unguarding = false;
 function syncBackGuard() {
   try {
@@ -2076,7 +2191,7 @@ function bind() {
     const h = habitById(view.id); const r = h.rewards.find(x => x.id === b.dataset.claim);
     r.claimed = true; save(); render(); toast(`Enjoy it: ${r.name}`);
   }));
-  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { const a = b.dataset.act; if (STAY_ACTS.has(a)) act(a); else leaving(() => act(a)); }));
+  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { const a = b.dataset.act; if (STAY_ACTS.has(a) || a.startsWith('craveto:')) act(a); else leaving(() => act(a)); }));
   app.querySelectorAll('[data-slippick]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.slippick, p = view.slipPicked || [];
     view.slipPicked = p.includes(id) ? p.filter(x => x !== id) : [...p, id]; render();
@@ -2108,8 +2223,17 @@ function bind() {
 
   const addForm = document.getElementById('addForm');
   if (addForm) {
+    // The photo for "Why does this matter to you?" (Mark, 2026-11-13): kept in the draft with everything typed so far.
+    const wp = document.getElementById('whyPhoto');
+    wp?.addEventListener('change', async () => {
+      const file = wp.files?.[0]; if (!file) return;
+      const d = readDraft();
+      try { d.whyPhoto = await shrinkPhoto(file); } catch { toast("That photo couldn't be opened"); }
+      view.draft = d; render();
+    });
+    document.getElementById('whyNoPhoto')?.addEventListener('click', () => { const d = readDraft(); delete d.whyPhoto; view.draft = d; render(); });
     const readDraft = () => ({ ...(view.draft || {}), type: val('type'), name: val('name'), start: val('start'), cost: val('cost'), currency: val('currency'),
-      rName: val('rName'), rTarget: val('rTarget'), ack: document.getElementById('ack')?.checked });
+      rName: val('rName'), rTarget: val('rTarget'), why: val('why'), ack: document.getElementById('ack')?.checked });
     document.getElementById('type').addEventListener('change', () => {
       const prev = view.draft || {};
       const d = readDraft();
@@ -2123,9 +2247,16 @@ function bind() {
       const d = readDraft();
       if ((d.type === 'drinking' || d.type === 'drugs') && !d.ack) { toast('Please read and tick the doctor notice first'); return; }
       const h = { id: uid(), example: false, type: d.type, icon: d.icon || TYPE_ICON[d.type], name: d.name.trim() || TYPES[d.type], start: d.start || todayKey(), slips: [],
-        cost: Math.max(0, Number(d.cost) || 0), currency: d.currency, plans: [], rewards: [] };
+        cost: Math.max(0, Number(d.cost) || 0), currency: d.currency, plans: [], rewards: [],
+        reasons: [] };
+      const whyText = (d.why || '').trim().slice(0, REASON_MAX);
+      if (whyText || photoOk(d.whyPhoto)) h.reasons.push({ id: uid(), ...(whyText ? { text: whyText } : {}), ...(photoOk(d.whyPhoto) ? { photo: d.whyPhoto } : {}) });
       if (d.rName.trim() && Number(d.rTarget) > 0) h.rewards.push({ id: uid(), name: d.rName.trim(), icon: 'gift', kind: 'days', target: Math.round(Number(d.rTarget)), claimed: false });
-      state.habits.unshift(h); save(); go('habit', { id: h.id }); toast('Habit added');
+      state.habits.unshift(h);
+      // Storage full with the photo: keep the habit and the words, leave the photo out (DDD 8.8).
+      let note = 'Habit added';
+      if (!save() && h.reasons[0]?.photo) { delete h.reasons[0].photo; if (!h.reasons[0].text) h.reasons = []; save(); note = "Habit added. Your phone's storage is full, so the photo wasn't saved"; }
+      go('habit', { id: h.id }); toast(note);
     });
   }
   const planForm = document.getElementById('planForm');
@@ -2152,7 +2283,7 @@ function bind() {
     const n = Number(b.dataset.mood); jdraft().note = val('jNote'); jdraft().mood = n;
     app.querySelectorAll('[data-mood]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     const low = document.getElementById('lowMood');
-    if (low) { low.innerHTML = n === 1 ? lowMoodNotice() : ''; low.querySelectorAll('[data-go]').forEach(x => x.addEventListener('click', () => go(x.dataset.go))); }
+    if (low) { low.innerHTML = n === 1 ? lowMoodNotice() : ''; low.querySelectorAll('[data-go]').forEach(x => x.addEventListener('click', () => leaving(() => go(x.dataset.go), x.dataset.go))); }
   }));
   app.querySelectorAll('[data-jtag]').forEach(b => b.addEventListener('click', () => {
     const d = jdraft(); d.note = val('jNote'); const id = b.dataset.jtag;
@@ -2171,6 +2302,13 @@ function bind() {
   const journalForm = document.getElementById('journalForm');
   if (journalForm) journalForm.addEventListener('submit', e => {
     e.preventDefault(); const d = jdraft(); d.note = val('jNote'); d.otherText = val('jOther');
+    // On the timer: save to today's entry, tagged to the habit, and stay on the timer.
+    if (view.name === 'craving') {
+      const c = cravingNow(); if (c && !d.habits.includes(c.id)) d.habits = [...d.habits, c.id];
+      const msg = saveJournal(todayKey(), d);
+      if (msg === 'Saved to your journal') { view.jopen = false; view.jdraft = null; render(); }
+      toast(msg); return;
+    }
     toast(submitJournal(d));
   });
   // backup and restore (DDD 8.6)
@@ -2202,6 +2340,27 @@ function bind() {
   }));
   // Typing saves as you go, without a re-render, so the keyboard stays open.
   app.querySelectorAll('[data-whyother]').forEach(i => i.addEventListener('input', () => { const h = habitById(i.dataset.whyother); if (h) setSlipOther(h, i.value); }));
+  const reasonForm = document.getElementById('reasonForm');
+  if (reasonForm) {
+    const h = habitById(view.id);
+    // Typing is kept as you go, without a re-render, so a photo pick or "Remove photo" never loses it.
+    document.getElementById('reasonText')?.addEventListener('input', () => { view.reasonDraft = { ...(view.reasonDraft || {}), text: val('reasonText') }; });
+    const rp = document.getElementById('reasonPhoto');
+    rp?.addEventListener('change', async () => {
+      const file = rp.files?.[0]; if (!file) return;
+      view.reasonDraft = { ...(view.reasonDraft || {}), text: val('reasonText') };
+      try { view.reasonDraft.photo = await shrinkPhoto(file); } catch { toast("That photo couldn't be opened"); }
+      render();
+    });
+    reasonForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = val('reasonText').trim(), photo = view.reasonDraft?.photo;
+      if (!text && !photoOk(photo)) { toast('Write a reason or add a photo'); return; }
+      const res = storeReason(h, view.reasonEdit, text, photo);
+      view.reasonEdit = null; view.reasonDraft = null; render();
+      toast(res === 'nophoto' ? "Your phone's storage is full, so the photo wasn't saved" : res === 'full' ? 'You already have 3 reasons' : 'Reason saved');
+    });
+  }
   const rewardForm = document.getElementById('rewardForm');
   if (rewardForm) rewardForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -2237,7 +2396,15 @@ function act(a) {
     else { view = { name: 'home', pickSlip: true }; render(); }
   }
   // Craving rescue (DDD 8.4)
-  if (a === 'craving') { if (state.habits.length === 1) startCraving(state.habits[0].id); else { view = { name: 'home', pickCrave: true }; render(); } }
+  // DDD 8.8: start first, ask after. Only the very first craving with several habits asks "Which habit?".
+  if (a === 'craving') { const id = craveHabit(); if (id) startCraving(id); else { view = { name: 'home', pickCrave: true }; render(); } }
+  if (a === 'craveswap') { view.swap = true; render(); }
+  if (a === 'craveswapx') { view.swap = false; render(); }
+  if (a === 'donecontinue') { if (state.craving) { delete state.craving.doneShow; save(); } render(); }
+  // My reasons (DDD 8.8)
+  if (a === 'reasonnew') { view.reasonEdit = 'new'; view.reasonDraft = {}; view.confirmReason = null; render(); }
+  if (a === 'reasonclose') { view.reasonEdit = null; view.reasonDraft = null; render(); }
+  if (a === 'reasonnophoto') { view.reasonDraft = { ...(view.reasonDraft || {}), text: val('reasonText') }; delete view.reasonDraft.photo; render(); }
   if (a === 'cancelcrave') { view = { name: 'home' }; render(); }
   if (a === 'cravestop') { state.craving = null; save(); go('home'); toast('Timer stopped'); }
   if (a === 'craveend') { state.craving = null; save(); go('home'); }
@@ -2252,10 +2419,12 @@ function act(a) {
     if (view.name === 'craving') go('home');
   }
   if (a === 'craveanother') { view.tipAt = (view.tipAt || 0) + 1; render(); }
+  // On the timer (Mark, 2026-11-13): the journal opens right there, filled in with anything already written today.
   if (a === 'cravejournal' && cravingNow()) {
     const id = state.craving.id, e = state.journal[todayKey()] || {};
-    go('journal', { jdraft: { mood: 0, note: '', habits: [], triggers: [], ...e, habits: [...new Set([...(e.habits || []), id])] } });
+    view.jopen = true; view.jdraft = { mood: 0, note: '', habits: [], triggers: [], ...e, habits: [...new Set([...(e.habits || []), id])] }; render();
   }
+  if (a === 'cravejournalx') { view.jopen = false; view.jdraft = null; render(); }
   if (a === 'logslips') slipFor(state.habits.filter(h => (view.slipPicked || []).includes(h.id)).map(h => h.id));
   if (a === 'cancelslip') { view = { name: 'home' }; render(); }
   if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
@@ -2279,6 +2448,16 @@ function act(a) {
   // Buttons on the slip and low-mood cards: open the habit at its tips (all shown) or at its plans (picker open for a new one).
   const [verb, arg, third] = a.split(':');
   if (verb === 'cravefor' && habitById(arg)) startCraving(arg);
+  // DDD 8.8: the wait moves to another habit. Same start; the full length becomes that habit's. Nothing counted, no leave prompt.
+  if (verb === 'craveto' && habitById(arg) && waitRunning()) {
+    const c = state.craving; c.id = arg; c.mins = craveMins(habitById(arg)); state.lastCrave = arg; view.swap = false; save(); render();
+  }
+  if (verb === 'reasonedit') { const r = reasonsOf(habitById(view.id) || {}).find(x => x.id === arg); if (r) { view.reasonEdit = r.id; view.reasonDraft = { text: r.text || '', photo: r.photo }; view.confirmReason = null; render(); } }
+  if (verb === 'reasondel') {
+    const h = habitById(view.id); if (!h) return;
+    if (view.confirmReason !== arg) { view.confirmReason = arg; render(); return; }
+    h.reasons = (h.reasons || []).filter(r => r.id !== arg); view.confirmReason = null; save(); render(); toast('Reason deleted');
+  }
   if (verb === 'cardtips' && habitById(arg)) { go('habit', { id: arg, tipsAll: true }); document.getElementById('tipsCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
   // "Make a Friday plan": the plan maker's own-words box, started for the user (Mark, 2026-11-12).
   if (verb === 'cardweekplan' && habitById(arg) && WEEKDAYS[third]) { go('habit', { id: arg, planOpen: true, planOwn: true, planOwnText: `If it's ${WEEKDAYS[third]}, then I will ` }); document.getElementById('planCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
@@ -2300,10 +2479,16 @@ function act(a) {
 // ---------- start ----------
 // A home-screen shortcut opens ./?checkin=clean or ./?checkin=slip (ADR 0008). Read it once, then tidy the address.
 let shortcut = null;
-try { shortcut = new URLSearchParams(location.search || '').get('checkin'); if (shortcut) history.replaceState(null, '', location.pathname); } catch { /* no shortcut */ }
+try { const q = new URLSearchParams(location.search || ''); shortcut = q.get('checkin') || (q.get('crave') ? 'crave' : null); if (shortcut) history.replaceState(null, '', location.pathname); } catch { /* no shortcut */ }
 function afterShortcut(sc) {
   if (sc === 'clean' && state.habits.length) return { name: 'home', confirmClean: true };
   if (sc === 'slip' && state.habits.length) return { name: 'home', pickSlip: true };
+  // "Craving timer" (DDD 8.8, ADR 0008 update): a wait already going shows; otherwise a new one starts, the same way as "Craving?".
+  if (sc === 'crave' && state.habits.length) {
+    if (waitRunning()) return { name: 'craving' };
+    const id = craveHabit();
+    return id && newCraving(id) ? { name: 'craving' } : { name: 'home', pickCrave: true };
+  }
   return { name: 'home' };
 }
 const saved = load();
@@ -2313,17 +2498,18 @@ else state.examples = false;                                      // the install
 if (IS_SITE && !state.siteFresh) { // once: clear demo examples saved before this rule; real habits are never touched
   state.habits = state.habits.filter(h => !h.example); state.examples = false; state.demoOffsetDays = 0; state.siteFresh = true; save();
 }
-if (location.hash === '#help') view = { name: 'help' };
-else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
-else view = afterShortcut(shortcut);
 // A wait that was running when the app closed (DDD 8.4): the 90-second rule decides. Back in time, the timer carries on;
 // later, "Your wait stopped when you left Steady." If the app closed without saying so, the last time it was seen counts.
+// This runs before a shortcut is read, so the "Craving timer" shortcut starts afresh after a wait that has stopped.
 if (cravingNow() && !state.craving.done) {
   const c = state.craving;
   if (!c.stopped && c.leftAt == null) c.leftAt = c.seenAt ?? c.start;
   checkAway();
-  if (view.name === 'home' && !shortcut) view = { name: 'craving' };
 }
+if (location.hash === '#help') view = { name: 'help' };
+else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
+else view = afterShortcut(shortcut);
+if (view.name === 'home' && !shortcut && cravingNow() && !state.craving.done) view = { name: 'craving' };
 // Leaving the app and coming back: note the time on the way out, check it on the way back in.
 document.addEventListener?.('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { onHidden(); return; }
