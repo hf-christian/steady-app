@@ -245,6 +245,21 @@ legend.hint { width: 100%; }
 #lowMood:empty { display: none; }
 #jOtherWrap { display: block; margin-top: 10px; }
 #jOtherWrap[hidden] { display: none; }
+.why-other { display: block; margin-top: 10px; }
+/* craving timer (DDD 8.4): a progress ring round the time, and a breathing circle behind it (in 4, hold 5, out 6) */
+.crave-dial { position: relative; width: min(240px, 72vw); aspect-ratio: 1; margin: var(--s4) auto 0; display: grid; place-items: center; }
+.crave-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.crave-dial .track { fill: none; stroke: color-mix(in srgb, var(--muted) 45%, var(--surface)); stroke-width: 6; }
+.crave-dial .ring { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; }
+/* QA B9: a clear edge (about 4:1 in light, 5:1 in dark) so the circle shows against the card, not only its soft fill */
+.breath { position: absolute; width: 74%; aspect-ratio: 1; border-radius: 50%; background: var(--accent-soft); border: 2px solid color-mix(in srgb, var(--accent) 75%, var(--surface)); box-sizing: border-box; transform: scale(.62); }
+.crave-time { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.crave-time b { font-size: 3rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.breath-word { text-align: center; font-weight: 700; font-size: 1.1rem; margin: var(--s2) 0 0; }
+.breath-src { text-align: center; }
+.half { text-align: center; font-weight: 700; color: var(--accent); }
+.half:empty { display: none; }
+.crave-btn { width: 100%; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .entry { display: flex; flex-direction: column; gap: 4px; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .entry:first-of-type { border-top: 0; }
@@ -310,6 +325,9 @@ footer { font-size: 0.8rem; color: var(--muted); text-align: center; padding-top
   @keyframes pop { 0% { transform: scale(.85); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
   .checkin.done .tick { animation: pop .4s var(--ease); }
   .week .day.today i { animation: breathe 2.4s ease-in-out infinite; }
+  .crave-dial .ring { transition: stroke-dashoffset 1s linear; }
+  .breath:not(.still) { animation: breath456 15s linear infinite; }
+  @keyframes breath456 { 0% { transform: scale(.62); animation-timing-function: ease-in-out; } 26.667% { transform: scale(1); } 60% { transform: scale(1); animation-timing-function: ease-in-out; } 100% { transform: scale(.62); } }
   @keyframes breathe { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); } }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -329,8 +347,15 @@ const CLAIMS = {
   'milestone.66': 'Many people find things feel more automatic around here. It varies a lot, from 18 to 254 days, so keep going either way.',
   'slip.research': "In research on building habits, missing one day didn't undo people's progress.",
   'mood.trigger': 'Health services list feeling low, stressed or lonely among the common triggers for cravings.',
-  'plan.ifthen': "Plans that name a trigger and what you'll do instead help people follow through.",
-  'plan.picked': "In one study of drinking, choosing a ready-made plan from a list worked as well as writing your own. Plans help some people follow through. The effect is modest, so treat a plan as one tool among others.",
+  // The craving rescue line (DDD 8.4), one per habit type that has an official source. Phone use has none.
+  'craving.smoking': 'Cravings usually pass in a few minutes.',
+  'craving.vaping': 'If you hold off, the craving should ease after a few minutes.',
+  'craving.drinking': "Urges are short and come in waves. If you don't act on one, it peaks and then passes.",
+  'craving.gambling': 'Urges often rise and fall like waves. Waiting gives an urge time to pass or ease.',
+  'craving.drugs': 'Cravings tend to last for a matter of minutes and then pass.',
+  'craving.overeating': 'Most people find the urge to eat fades over time.',
+  'plan.ifthen': "Plans that name a trigger and what you'll do instead help some people follow through.",
+  'plan.picked': "In one study of drinking, picking a ready-made plan from a list worked as well as writing your own. The effect is modest, so treat a plan as one tool among others.",
   'alcohol.doctor': 'If you drink heavily or every day, talk to a doctor before you stop.',
   'alcohol.withdrawal': 'Stopping suddenly can cause alcohol withdrawal, which can quickly become dangerous.',
   'alcohol.emergency': ['Seizures', 'Fever', 'Severe confusion', "Seeing or hearing things that aren't there", 'An irregular heartbeat'],
@@ -428,6 +453,7 @@ const SRC = {
   nhsCamEating: ['NHS', 'https://www.cuh.nhs.uk/patient-information/a-brief-guide-to-tackling-emotional-eating/'],
   mlpScreens: ['MedlinePlus', 'https://magazine.medlineplus.gov/article/7-tips-for-managing-screen-use'],
   eSafety: ['eSafety Commissioner', 'https://www.esafety.gov.au/key-topics/digital-wellbeing/manage-your-screen-time'],
+  qldAdis: ['Queensland Health', 'https://www.adis.health.qld.gov.au/sites/default/files/resource/file/Cravings_Fact_Sheet_v1_lc.pdf'],
 };
 const TIPS = [
   ['smoking', 'tip.smoking.wait', 'Cravings usually pass in a few minutes. Have something ready to do until it fades.', 'nhsSmoke'],
@@ -493,6 +519,29 @@ const TIPS = [
   ['phone', 'tip.phone.boredom', 'When you reach for the phone out of boredom, have something else ready, like a walk, a book or a hobby.', 'mlpScreens'],
 ].map(([habit, id, text, src, general]) => ({ habit, id, text, source: SRC[src][0], url: SRC[src][1], checked: '2026-11-11', general: !!general }));
 const tipsFor = type => TIPS.filter(t => t.habit === type);
+// QA B1 (Mark, 2026-11-13): every health fact and research line shows its source link, like the tips do.
+// Each is the page its note in docs/evidence-map.md was read from (or the DOI the note gives). Research lines name the study.
+const MLP_ALCOHOL = ['MedlinePlus', 'https://medlineplus.gov/ency/article/000764.htm'];
+const BPS_HABITS = ['BPS Research Digest', 'https://bps.org.uk/research-digest/how-form-habit']; // Lally 2010, checked 2026-11-13
+const CLAIM_SRC = {
+  'health.smoking': ['CDC', 'https://www.cdc.gov/tobacco/about/benefits-of-quitting.html'],
+  'health.alcohol': ['NSW Health', 'https://yourroom.health.nsw.gov.au/whats-new/Pages/health-benefits-when-you-stop-drinking.aspx'],
+  'health.cannabis': ['NSW Health', 'https://yourroom.health.nsw.gov.au/a-z-of-drugs/Pages/cannabis.aspx'],
+  'health.vaping.none': ['CDC', 'https://www.cdc.gov/tobacco/e-cigarettes/quitting.html'],
+  'alcohol.doctor': MLP_ALCOHOL, 'alcohol.withdrawal': MLP_ALCOHOL, 'alcohol.emergency': MLP_ALCOHOL,
+  'drugs.doctor': ['FDA', 'https://www.fda.gov/drugs/drug-safety-and-availability/fda-requiring-boxed-warning-updated-improve-safe-use-benzodiazepine-drug-class'],
+  'drugs.tolerance': ['MedlinePlus', 'https://medlineplus.gov/ency/article/000949.htm'],
+  'slip.research': BPS_HABITS, 'milestone.66': BPS_HABITS,
+  'plan.ifthen': ['National Cancer Institute', 'https://cancercontrol.cancer.gov/brp/constructs/implementation_intentions/goal_intent_attain.pdf'],
+  'plan.picked': ['Armitage 2009', 'https://doi.org/10.1037/a0015984'],
+  'reminder.routine': ['Stawarz 2015', 'https://research-information.bris.ac.uk/en/publications/beyond-self-tracking-and-reminders-designing-smartphone-apps-that/'],
+};
+const srcA = ([name, url], text = name) => `<a href="${url}" target="_blank" rel="noopener">${text}</a>`;
+// " (Source)" after a claim, one link per page however many claims share it.
+const cite = (...ids) => {
+  const pages = [...new Map(ids.map(id => CLAIM_SRC[id]).filter(Boolean).map(s => [s[1], s])).values()];
+  return pages.length ? ` <span class="small muted">(${pages.map(s => srcA(s)).join(', ')})</span>` : '';
+};
 const TIPS_SHOWN = 3; // DDD 8.1: the first few show; the rest sit behind "Show all"
 const MILESTONES = [
   [1, 'First day done.'],
@@ -630,13 +679,31 @@ function removePlan(i) {
   if (view.confirmPlan !== i) { view.confirmPlan = i; render(); return; }
   plansOf(h).splice(i, 1); view.confirmPlan = undefined; save(); render(); toast('Plan removed');
 }
-// "Was it one of these?" after a slip: the answer is kept with that day's slip, on this phone only. Tapping it again clears it.
-function setSlipWhy(h, index) {
-  const label = index === 'x' ? 'Something else' : planTriggers(h.type)[Number(index)];
-  if (!label) return;
-  const day = todayKey();
+// "What was going on?" after a slip (DDD 8.7, ADR 0011 point 14): the journal's 8 chips, more than one allowed, kept with
+// that habit's day on this phone only (h.slipWhy[day] = ['stressed', 'other'], h.slipOther[day] = the user's words).
+// Older answers are one string (the habit's if-then cue, e.g. "I finish a meal"); they still show and still count.
+const slipChips = (h, day) => { const v = (h.slipWhy || {})[day]; return Array.isArray(v) ? v.filter(t => JTRIGGERS.some(([id]) => id === t)) : []; };
+const slipOtherOf = (h, day) => (slipChips(h, day).includes('other') ? String((h.slipOther || {})[day] || '').slice(0, OTHER_MAX) : '');
+const oldSlipWhy = (h, day) => { const v = (h.slipWhy || {})[day]; return typeof v === 'string' ? v : ''; };
+// Plain words, not escaped: "Stressed, Other (my boss)". Home cards pass withOther = false, so they show just "Other".
+const slipWords = (h, day, withOther = true) => oldSlipWhy(h, day)
+  || slipChips(h, day).map(t => (t === 'other' && withOther && slipOtherOf(h, day) ? `Other (${slipOtherOf(h, day)})` : trigWord(t))).join(', ');
+// Tags for patterns: chip ids as they are; an older word answer is read the way it always was.
+const slipTags = (h, day) => (oldSlipWhy(h, day) ? [whyTag(oldSlipWhy(h, day))] : slipChips(h, day));
+// Tapping a chip turns it on or off. An older word answer for today is replaced. Turning Other off drops its words.
+function setSlipWhy(h, id) {
+  if (!JTRIGGERS.some(([t]) => t === id)) return;
+  const day = todayKey(), on = slipChips(h, day);
+  const next = on.includes(id) ? on.filter(t => t !== id) : [...on, id];
   h.slipWhy = h.slipWhy || {};
-  if (h.slipWhy[day] === label) delete h.slipWhy[day]; else h.slipWhy[day] = label;
+  if (next.length) h.slipWhy[day] = next; else delete h.slipWhy[day];
+  if (!next.includes('other') && h.slipOther) delete h.slipOther[day];
+  save();
+}
+function setSlipOther(h, text) {
+  const day = todayKey(), t = String(text || '').trim().slice(0, OTHER_MAX);
+  h.slipOther = h.slipOther || {};
+  if (t && slipChips(h, day).includes('other')) h.slipOther[day] = t; else delete h.slipOther[day];
   save();
 }
 
@@ -765,14 +832,24 @@ function toast(msg) {
 }
 function go(name, extra = {}) { view = { name, ...extra }; render(); window.scrollTo(0, 0); }
 const habitById = id => state.habits.find(h => h.id === id);
-const footer = `<footer>Steady is a habit support tool, not medical treatment or medical advice. If you think you may be dependent on alcohol or another substance, talk to a doctor.</footer>`;
+const footer = `<footer>Steady is a habit support tool, not medical treatment or medical advice. If you think you may be dependent on alcohol, another substance or gambling, talk to a doctor.</footer>`;
 
 function render() {
-  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen, journal: journalScreen, calendar: calendarScreen };
+  const screens = { home, habit: habitScreen, add: addScreen, bounce: bounceScreen, help: helpScreen, country: countryScreen, journal: journalScreen, calendar: calendarScreen, craving: cravingScreen };
   // "Need help now?" on every screen but Get help itself and first launch, which has its own (ADR 0007 rule 17)
   const fab = view.name === 'help' || (view.name === 'country' && view.first) ? '' : '<button class="help-fab" data-go="help">Need help now?</button>';
+  // Stay with the wait (DDD 8.4): a running wait lives only on the timer, or on Get help (and its country picker).
+  // Back on the timer, the Get help mark goes. Anywhere else, an unfinished wait has stopped and counts nothing.
+  const cw = state.craving;
+  if (cw && !cw.done) {
+    if (view.name === 'craving') { if (cw.helpAt) { delete cw.helpAt; save(); } }
+    else if (!(['help', 'country'].includes(view.name) && waitRunning())) { state.craving = null; save(); }
+  }
   app.innerHTML = `<div class="view">${(screens[view.name] || home)()}</div>${footer}${fab}`;
   bind();
+  if (view.name === 'craving') craveTick();
+  syncAwake();
+  syncBackGuard();
 }
 
 const statsBlock = (h, p) => `<div class="stats">
@@ -803,10 +880,11 @@ const weekStrip = h => {
   return `<div class="week" role="img" aria-label="${label}">${days.map(d => `<span class="day ${d.state}" title="${d.name}, ${niceDate(d.key)}: ${DAY_WORD[d.state]}"><i></i><small>${d.letter}</small></span>`).join('')}</div>`;
 };
 // Written as direct claim() calls so the evidence check can see each one is used.
+const HEALTH_ID = { smoking: 'health.smoking', drinking: 'health.alcohol', cannabis: 'health.cannabis' };
 const HEALTH = { smoking: () => claim('health.smoking'), drinking: () => claim('health.alcohol'), cannabis: () => claim('health.cannabis') };
 // "Your body": facts reached so far plus the next two, counted from the last use (DDD 7.2).
 function healthCard(h, p) {
-  if (h.type === 'vaping') return `<section class="card"><h2>Your body</h2><p class="small muted">${claim('health.vaping.none')}</p></section>`;
+  if (h.type === 'vaping') return `<section class="card"><h2>Your body</h2><p class="small muted">${claim('health.vaping.none')}${cite('health.vaping.none')}</p></section>`;
   if (!HEALTH[h.type]) return '';
   const c = HEALTH[h.type]();
   const reached = c.items.filter(([d]) => p.run >= d), next = c.items.filter(([d]) => p.run < d).slice(0, 2);
@@ -816,7 +894,7 @@ function healthCard(h, p) {
       <span class="chip ${done ? 'done' : 'todo'}">${done ? 'Reached' : `${left} day${left === 1 ? '' : 's'} to go`}</span></div>`;
   };
   return `<section class="card"><h2>Your body</h2>
-    <p class="small muted">Counted from ${c.from}, so it starts again after a slip. Your clean days, milestones and rewards stay. General information from ${c.source}, not medical advice; everyone is different.</p>
+    <p class="small muted">Counted from ${c.from}, so it starts again after a slip. Your clean days, milestones and rewards stay. General information from ${srcA(CLAIM_SRC[HEALTH_ID[h.type]], c.source)}, not medical advice; everyone is different.</p>
     <div class="list">${[...reached, ...next].map(row).join('')}</div></section>`;
 }
 // ---------- daily check-in and calendar reminder (DDD 7.3, ADR 0005) ----------
@@ -919,6 +997,11 @@ function submitJournal(d) {
   if (msg === 'Saved to your journal') go('home');
   return msg;
 }
+function homeMood(n) {
+  const t = todayKey();
+  if (saveJournal(t, { ...(state.journal[t] || {}), mood: n }) !== 'Saved to your journal') return;
+  go('journal', { jdraft: { mood: 0, note: '', habits: [], triggers: [], ...state.journal[t] } });
+}
 function removeJournal(key) {
   if (view.confirmJRemove !== key) { view.confirmJRemove = key; render(); return; }
   delete state.journal[key]; view.confirmJRemove = null; view.jday = null; view.jdraft = null; save(); render(); toast('Entry removed');
@@ -931,6 +1014,19 @@ function journalCard() {
   if (e) return `<button class="card mood-card done" data-go="journal" aria-label="Open your journal"><span class="eyebrow">Journal</span>
     <h2 class="with-ic"><span class="disc m${e.mood}">${faceImg(e.mood, 30)}</span>Today you feel ${moodOf(e.mood)[2].toLowerCase()}</h2><span class="small muted">Tap to add or change a note.</span></button>`;
   return `<section class="card mood-card"><span class="eyebrow">Journal</span><h2>How are you feeling?</h2>
+    <p class="eyebrow hint">Tap a face</p>${moodPicker('data-jmood')}</section>`;
+}
+// One "Today" card on home (DDD 8.7): first "How did today go?", then, in the same card, "How are you feeling?".
+// With no habits there's nothing to check in, so it's just the mood. The Journal button at the top still opens the journal any time.
+function todayCard() {
+  const t = todayKey();
+  if (!state.habits.length) return journalCard();
+  if (state.checkin !== t) return checkinCard();
+  const e = state.journal[t];
+  const head = `<span class="eyebrow">Today</span><h2 class="with-ic"><span class="tick">${glyph('check', 18)}</span>Checked in.</h2><p class="muted">${cheerFor(t)}</p>`;
+  if (e) return `<button class="card checkin done mood-card" data-go="journal" aria-label="Open your journal">${head}
+    <p class="with-ic"><span class="disc m${e.mood}">${faceImg(e.mood, 30)}</span>Today you feel ${moodOf(e.mood)[2].toLowerCase()}.</p><span class="small muted">Tap to add or change a note.</span></button>`;
+  return `<section class="card checkin done mood-card">${head}<h3>How are you feeling?</h3>
     <p class="eyebrow hint">Tap a face</p>${moodPicker('data-jmood')}</section>`;
 }
 // Gentle support under a "Very low" entry. It follows the country and never reads the note.
@@ -1017,13 +1113,17 @@ function backupDataOk(d) {
   const habitOk = h => h && typeof h === 'object' && SAFE_ID.test(h.id) && typeof h.name === 'string' && isDay(h.start)
     && Array.isArray(h.slips) && h.slips.every(isDay) && (h.rewards === undefined || (Array.isArray(h.rewards) && h.rewards.every(rewardOk)))
     && knownIcon(h.icon) && (h.cost === undefined || Number.isFinite(h.cost)) && (h.currency === undefined || /^[A-Z]{3}$/.test(h.currency))
-    && (h.slipWhy === undefined || (h.slipWhy && typeof h.slipWhy === 'object' && Object.entries(h.slipWhy).every(([k, v]) => isDay(k) && typeof v === 'string')));
+    && (h.slipWhy === undefined || (h.slipWhy && typeof h.slipWhy === 'object' && Object.entries(h.slipWhy).every(([k, v]) => isDay(k)
+      && (typeof v === 'string' || (Array.isArray(v) && v.every(t => JTRIGGERS.some(([id]) => id === t)))))))
+    && (h.cravings === undefined || (Array.isArray(h.cravings) && h.cravings.every(isDay)))
+    && (h.slipOther === undefined || (h.slipOther && typeof h.slipOther === 'object' && Object.entries(h.slipOther).every(([k, v]) => isDay(k) && typeof v === 'string' && v.length <= OTHER_MAX)));
   const j = d.journal ?? {};
   const entryOk = ([k, e]) => isDay(k) && e && typeof e === 'object' && moodOf(e.mood) && (e.note === undefined || typeof e.note === 'string')
     && (e.habits === undefined || (Array.isArray(e.habits) && e.habits.every(id => typeof id === 'string')));
   const daysOk = ['lastBackup', 'dataSince', 'backupSnooze', 'checkin'].every(k => d[k] === undefined || d[k] === null || isDay(d[k]));
   return d.habits.every(habitOk) && typeof j === 'object' && !Array.isArray(j) && Object.entries(j).every(entryOk) && daysOk
     && (d.demoOffsetDays === undefined || Number.isInteger(d.demoOffsetDays))
+    && (d.craving == null || (typeof d.craving === 'object' && SAFE_ID.test(d.craving.id) && Number.isFinite(d.craving.start) && [5, 15].includes(d.craving.mins)))
     && (d.patternReminder === undefined || typeof d.patternReminder === 'boolean')
     && ['cardHidden', 'patternHidden'].every(k => d[k] === undefined || (d[k] && typeof d[k] === 'object' && !Array.isArray(d[k]) && Object.values(d[k]).every(isDay)));
 }
@@ -1124,7 +1224,7 @@ function lowMoodRun(s, today) {
 }
 // Patterns (DDD 8.3, ADR 0011 points 2-4): simple counting, no AI. Each slip in the last 60 days gives a window (the slip day
 // and the day before). In each window it notes the chips and a Low or Very low mood from journal entries that are untagged or
-// tagged to that habit, plus the slip screen's "Was it one of these?" answer (Mark, 2026-11-12): read as a chip when it matches one
+// tagged to that habit, plus the slip screen's "What was going on?" chips (DDD 8.7). Older word answers (Mark, 2026-11-12) are read as a chip when they match one
 // ("I feel stressed" counts as Stressed), else counted as its own words ("I finish a meal"). A pattern needs at least 3 slips and
 // the same tag in at least 2 windows. Note text is never read.
 const PATTERN_DAYS = 60, PATTERN_SLIPS = 3, PATTERN_HITS = 2;
@@ -1145,8 +1245,7 @@ function findPatterns(s, today) {
         triggersOf(e).forEach(t => tags.add(t));
         if (Number(e.mood) === 1 || Number(e.mood) === 2) tags.add('lowmood');
       });
-      const why = (h.slipWhy || {})[k];
-      if (typeof why === 'string' && why) tags.add(whyTag(why));
+      slipTags(h, k).forEach(t => tags.add(t));
       tags.forEach(t => { hits[t] = (hits[t] || 0) + 1; last[t] = k; });
     });
     const tag = Object.keys(hits).filter(t => hits[t] >= PATTERN_HITS).sort((a, b) => hits[b] - hits[a] || tagRank(a) - tagRank(b))[0];
@@ -1239,12 +1338,13 @@ const PATTERN_NOTE = {
 // pattern cards have "Hide this pattern" (ADR 0011 point 13). The switch on the Journal screen turns all of them off.
 function openingCard(s = state, today = todayKey()) {
   if (!remindersOn(s) || !s.habits.length) return null;
-  const slipped = s.habits.find(h => h.slips.includes(today));
-  if (slipped) {
-    // Today's chips, unless today's entry is tagged only to other habits.
-    const e = s.journal?.[today], tags = e?.habits || [];
-    const fits = e && (!tags.length || tags.includes(slipped.id));
-    return { kind: 'slip', habit: slipped, triggers: fits ? triggersOf(e) : [] };
+  // Every habit that slipped today gets its own card (QA B4, 2026-11-13). Today's journal chips go on a card only when the
+  // entry is tagged to that habit: untagged chips were never said to be about it (QA B5).
+  const slipped = s.habits.filter(h => h.slips.includes(today));
+  if (slipped.length) {
+    const e = s.journal?.[today];
+    const cards = slipped.map(h => ({ habit: h, triggers: e && (e.habits || []).includes(h.id) ? triggersOf(e) : [] }));
+    return { kind: 'slip', ...cards[0], cards };
   }
   const low = lowMoodRun(s, today);
   if (low) return { kind: 'lowMood', ...low };
@@ -1262,7 +1362,7 @@ const CHIP_TIPS = {
   argument: ['tip.smoking.breathe', 'tip.vaping.delay', 'tip.alcohol.wave', 'tip.gambling.delay', 'tip.cannabis.general.breathe', 'tip.druguse.move', 'tip.overeating.kind'],
   celebrating: ['tip.smoking.drinks', 'tip.vaping.no', 'tip.alcohol.no', 'tip.druguse.alcohol', 'tip.gambling.route', 'tip.overeating.plate'],
 };
-// The answer to "Was it one of these?" on the slip screen, read as a chip so it can pick a tip too.
+// An older word answer from the slip screen (before DDD 8.7), read as a chip so it can pick a tip too.
 // Only clear matches: "I first wake up" isn't Tired and "I'm alone at night" isn't Lonely, so those stay as their own words.
 const WHY_CHIP = [[/stress|upset|low/i, 'stressed'], [/bored/i, 'bored'], [/can't sleep|tired/i, 'tired'],
   [/lonely/i, 'lonely'], [/party|celebrat/i, 'celebrating'], [/friends|people/i, 'with-others']];
@@ -1281,24 +1381,34 @@ const tipLine = (h, found) => found ? `<p>${found.matched ? 'A tip that may help
 const planLine = h => { const pl = plansOf(h)[0]; return pl ? `<p class="small">Your plan for ${esc(h.name)}: <b>${esc(pl.text)}</b></p>` : ''; };
 function rewardLine(h) {
   const p = progress(h), r = h.rewards.find(x => !x.claimed);
-  return r ? `<p class="small">Still waiting for you: <b>${esc(r.name)}</b> ${rewardGoal(r, h)}${rewardUnlocked(r, p) ? ' (unlocked)' : ''}.</p>` : '';
+  // An unlocked reward isn't "waiting" (QA B7).
+  return r ? `<p class="small">${rewardUnlocked(r, p) ? 'Ready to claim' : 'Still waiting for you'}: <b>${esc(r.name)}</b> ${rewardGoal(r, h)}.</p>` : '';
 }
 const tipsButton = h => tipsFor(h.type).length ? `<button data-act="cardtips:${h.id}">Tips</button>` : '';
 // Words: say only what the user logged. Never "you are", never a guess that a slip is coming (ADR 0011).
 function openingCardHtml() {
   const c = openingCard(); if (!c) return '';
   const h = c.habit;
-  if (c.kind === 'slip') {
-    const why = (h.slipWhy || {})[todayKey()];
-    const said = [...c.triggers.map(trigWord), ...(why ? [why] : [])];
-    const chips = [...(whyChip(why) ? [whyChip(why)] : []), ...c.triggers];
+  if (c.kind === 'slip') return c.cards.map(slipCardHtml).join('');
+  return otherCardHtml(c, h);
+}
+function slipCardHtml({ habit: h, triggers }) {
+  {
+    // The slip screen's chips and today's tagged journal chips are the same list, so they merge; an older word answer is shown as is.
+    const c = { triggers }, day = todayKey(), old = oldSlipWhy(h, day);
+    const chips = [...new Set([...slipChips(h, day), ...c.triggers])];
+    const said = [...chips.map(trigWord), ...(old ? [old] : [])];
+    const tipChips = [...(whyChip(old) ? [whyChip(old)] : []), ...chips];
     const full = plansOf(h).length >= MAX_PLANS;
+    // "For the rest of today" (DDD 8.7): the slip screen already said "A slip is one day…" and gave the research line.
     return `<section class="notice soft opening" aria-label="After today's slip"><span class="eyebrow">${esc(h.name)}</span>
-      <h3>A slip is one day, not the whole story.</h3><p class="small">${claim('slip.research')}</p>
+      <h3>For the rest of today</h3>
       ${said.length ? `<p class="small">What was going on: ${said.map(esc).join(', ')}.</p>` : ''}
-      ${tipLine(h, tipFor(h, chips))}${planLine(h)}${rewardLine(h)}
-      <div class="row">${tipsButton(h)}<button data-act="${full ? 'cardplans' : 'cardplan'}:${h.id}">${full ? 'Manage your if-then plans' : 'Save a new plan'}</button></div></section>`;
+      ${tipLine(h, tipFor(h, tipChips))}${planLine(h)}${rewardLine(h)}
+      <div class="row"><button data-act="cravefor:${h.id}">Craving?</button>${tipsButton(h)}<button data-act="${full ? 'cardplans' : 'cardplan'}:${h.id}">${full ? 'Manage your if-then plans' : 'Save a new plan'}</button></div></section>`;
   }
+}
+function otherCardHtml(c, h) {
   if (c.kind === 'pattern') {
     // No "Open [habit]": the habit card is one tap away (Mark, 2026-11-12). Only pattern cards can be hidden (ADR 0011 point 13).
     const hide = '<button class="ghost" data-act="hidepattern">Hide this pattern</button>';
@@ -1373,7 +1483,7 @@ function monthGrid(m) {
 // Everything the calendar shows for one day. Nothing new is stored.
 const calendarDay = (key, today = todayKey()) => ({
   key, future: key > today, entry: state.journal[key] || null,
-  habits: state.habits.map(h => ({ h, state: dayState(h, key, today), why: (h.slipWhy || {})[key] || '' })),
+  habits: state.habits.map(h => ({ h, state: dayState(h, key, today), why: slipWords(h, key) })),
 });
 const CAL_SHOWN = ['clean', 'slip', 'today'];
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -1426,7 +1536,7 @@ function reminderCard() {
   const phone = state.habits.some(h => h.type === 'phone');
   return `<section class="card"><h3>Remind me daily</h3>
     <p class="small muted">Adds a daily event to your phone's calendar. The alert says "${REMINDER_TITLE}" and never names your habit.</p>
-    <p class="small muted">${claim('reminder.routine')}</p>
+    <p class="small muted">${claim('reminder.routine')}${cite('reminder.routine')}</p>
     ${phone ? '<p class="small muted">This adds one notification a day. If you\'re cutting down on phone use, you can skip it.</p>' : ''}
     ${!IS_SITE ? `<p class="small">The calendar reminder works in the home-screen version: <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE_URL.replace('https://', '')}</a></p>` : `<form id="reminderForm" class="reminder-form"><label>Time<input id="rTime" type="time" value="${esc(state.reminder?.time || '20:00')}" required></label><button type="submit">Add to my calendar</button></form>
     ${state.reminder ? `<p class="small muted">You added a reminder for ${esc(state.reminder.time)}. To stop it, delete the event in your calendar.</p>` : '<p class="small muted">To stop it later, delete the event in your calendar.</p>'}`}
@@ -1448,7 +1558,7 @@ function home() {
         <div class="brand"><h2>${esc(h.name)}</h2><span class="small muted">${esc(shownType(h))}</span></div>${h.example ? tagFor(h) : ''}</div>
       <div class="run-row">${runBlock(p)}${weekStrip(h)}</div>${statsBlock(h, p)}
       <div class="next">
-        <span class="small muted">${p.next ? `Next milestone: <b>${p.next[0]} clean days</b> (${p.next[0] - p.clean} to go)` : 'Every milestone reached'}</span>
+        <span class="small muted">${p.next ? `Next milestone: <b>${plural(p.next[0], 'clean day')}</b> (${p.next[0] - p.clean} to go)` : 'Every milestone reached'}</span>
         <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, pct)}%"></i></div>
         ${nextReward ? `<span class="next-reward small"><span class="tile sm">${glyph(rewardIcon(nextReward), 22)}</span><span>${rewardUnlocked(nextReward, p) ? '<b style="color:var(--gold)">Reward unlocked:</b>' : 'Next reward:'} ${esc(nextReward.name)} <span class="muted">${rewardGoal(nextReward, h)}</span></span></span>` : ''}
       </div>
@@ -1463,8 +1573,8 @@ function home() {
       <div class="col">
         ${samsungNote()}
         ${openingCardHtml()}
-        ${checkinCard()}
-        ${journalCard()}
+        ${todayCard()}
+        ${cravingCard()}
         ${backupCard()}
         ${state.habits.length ? `<div class="cards">${cards}</div>` : `<div class="card"><h2>Start with one habit</h2><p class="muted">Add something you want to stop. Steady counts your clean days, your money saved and the rewards you set for yourself.</p></div>`}
         <button class="primary mobile-add" data-go="add">${glyph('plus', 18)}Add a habit</button>
@@ -1491,7 +1601,7 @@ function habitScreen() {
   const p = progress(h);
   const milestones = MILESTONES.map(([d, text]) => {
     const done = p.clean >= d;
-    return `<div class="item"><div class="label"><b class="num">${d} clean day${d === 1 ? '' : 's'}</b><span class="small muted">${esc(text)}</span></div>
+    return `<div class="item"><div class="label"><b class="num">${d} clean day${d === 1 ? '' : 's'}</b><span class="small muted">${esc(text)}${d === 66 ? cite('milestone.66') : ''}</span></div>
       <span class="chip ${done ? 'done' : 'todo'}">${done ? 'Reached' : `${d - p.clean} to go`}</span></div>`;
   }).join('');
   const rewards = h.rewards.map(r => {
@@ -1501,8 +1611,8 @@ function habitScreen() {
       : `<span class="chip todo">${r.kind === 'money' ? money(Math.max(0, r.target - p.saved), h.currency) : `${Math.max(0, r.target - p.clean)} days`} to go</span>`;
     return `<div class="item"><span class="tile md">${glyph(rewardIcon(r), 30)}</span><div class="label"><b>${esc(r.name)}</b><span class="small muted">${rewardGoal(r, h)}</span></div>${right}</div>`;
   }).join('') || '<p class="muted small">No rewards yet. Pick something you would enjoy.</p>';
-  const safety = h.type === 'drinking' ? `<div class="notice"><h3>Before you stop drinking</h3><p>${claim('alcohol.doctor')} ${claim('alcohol.withdrawal')}</p></div>`
-    : h.type === 'drugs' ? `<div class="notice"><h3>Stay safe</h3><p>${claim('drugs.doctor')}</p><p><b>${claim('drugs.tolerance')}</b></p><div class="row"><button data-go="help">See help lines</button></div></div>`
+  const safety = h.type === 'drinking' ? `<div class="notice"><h3>Before you stop drinking</h3><p>${claim('alcohol.doctor')} ${claim('alcohol.withdrawal')}${cite('alcohol.withdrawal')}</p></div>`
+    : h.type === 'drugs' ? `<div class="notice"><h3>Stay safe</h3><p>${claim('drugs.doctor')}${cite('drugs.doctor')}</p><p><b>${claim('drugs.tolerance')}</b>${cite('drugs.tolerance')}</p><div class="row"><button data-go="help">See help lines</button></div></div>`
     : h.type === 'cannabis' ? `<div class="notice soft"><h3>Support, not treatment</h3><p>${claim('cannabis.mild')} ${claim('cannabis.doctor')}</p><p>${claim('cannabis.support')}</p><div class="row"><button data-go="help">See help lines</button></div></div>`
     : h.type === 'gambling' ? `<div class="notice soft"><h3>Support, not treatment</h3><p>Steady can help you track progress. ${claim('gambling.tools')}</p><div class="row"><button data-go="help">See help lines</button></div></div>` : '';
   const rIcon = view.rewardIcon || 'gift';
@@ -1522,6 +1632,8 @@ function habitScreen() {
           <button class="link small" data-act="calendar">See calendar</button>
           ${h.cost > 0 ? `<p class="small muted">Based on your estimate of ${money(h.cost, h.currency)} a day.</p>` : ''}
           ${p.slipToday ? '<p class="small muted">You logged a slip today. Your new run starts now.</p>' : '<button class="danger" data-act="slip">I slipped today</button>'}
+          <div class="row"><button data-act="cravefor:${h.id}">Craving?</button></div>
+          ${ridden(h) ? `<p class="small muted">Cravings ridden out: ${ridden(h)}</p>` : ''}
         </div>
         ${safety}
         ${healthCard(h, p)}
@@ -1584,11 +1696,152 @@ function planCard(h) {
       <div class="row"><button type="submit" class="primary">Save plan</button><button type="button" class="ghost" data-act="planown">Write my own plan instead</button>${plans.length ? '<button type="button" class="ghost" data-act="planclose">Cancel</button>' : ''}</div></form>`;
   }
   return `<section class="card" id="planCard"><h2>Your if-then plans</h2>
-    <p class="small muted">${claim('plan.ifthen')} ${claim('plan.picked')}</p>
+    <p class="small muted">${claim('plan.ifthen')} ${claim('plan.picked')}${cite('plan.ifthen', 'plan.picked')}</p>
     ${plans.length ? `<div class="list">${list}</div>` : ''}${form}
     ${!open && !full ? '<div class="row"><button data-act="planopen">+ Add another plan</button></div>' : ''}
     ${full ? `<p class="small muted">You have ${MAX_PLANS} plans, which is plenty. Remove one if you'd like to add a different one.</p>` : ''}
   </section>`;
+}
+
+// ---------- craving rescue (DDD 8.4): wait it out together. A craving is not a slip, and the timer is a tool, not treatment ----------
+let clockMs = () => Date.now(); // tests replace it
+let craveTimer = null;
+const GRACE_MS = 90000; // "Stay with the wait": away from Steady longer than this and the wait stops (Mark, 2026-11-13)
+const craveMins = h => (h.type === 'gambling' ? 15 : 5); // the gambling source says wait at least 15 minutes
+// The "cravings pass" line, only where an official page says it (research doc, "Craving rescue line"). Phone use has none.
+const CRAVE_LINE = {
+  smoking: () => [claim('craving.smoking'), 'nhsSmoke'],
+  vaping: () => [claim('craving.vaping'), 'auVape'],
+  drinking: () => [claim('craving.drinking'), 'niaaaCravings'],
+  gambling: () => [claim('craving.gambling'), 'qldGambling'],
+  drugs: () => [claim('craving.drugs'), 'qldAdis'],
+  cannabis: () => [claim('craving.drugs'), 'qldAdis'],
+  overeating: () => [claim('craving.overeating'), 'nhsCamEating'],
+};
+// The timer counts from when it started (state.craving), so it stays right if the phone sleeps for a moment.
+// Never more than the full wait, even if the phone's clock is set back mid-wait (QA B8).
+const craveLeft = () => { const c = state.craving; return c ? Math.min(c.mins * 60000, Math.max(0, c.start + c.mins * 60000 - clockMs())) : 0; };
+const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${pad(s % 60)}`; };
+const cravingNow = () => { const c = state.craving; return c && habitById(c.id) ? c : null; };
+// A wait still going: started, not finished, and not stopped by leaving the app.
+const waitRunning = () => { const c = cravingNow(); return !!c && !c.done && !c.stopped; };
+// more: "Wait 5 more minutes" carries on the same craving, so it doesn't count a second one (QA B12, Mark 2026-11-13).
+function startCraving(id, mins, more) {
+  const h = habitById(id); if (!h) return;
+  state.craving = { id: h.id, start: clockMs(), mins: mins || craveMins(h), ...(more ? { more: true } : {}) };
+  save(); go('craving');
+}
+// A finished wait counts once for that habit ("Cravings ridden out"). It never changes streaks, clean days or money.
+// buzz: a gentle buzz when the timer reaches 0 on screen, where the phone can (nothing where it can't).
+function finishCraving(buzz) {
+  const c = cravingNow(); if (!c || c.done || c.stopped) return;
+  const h = habitById(c.id);
+  if (!c.more) h.cravings = [...(h.cravings || []), todayKey()];
+  c.done = true; delete c.leftAt; delete c.helpAt; save();
+  if (buzz) { try { navigator.vibrate?.([120, 80, 120]); } catch { /* no buzz */ } }
+}
+// Leaving the app (switching apps, the home screen, locking the phone, closing it): back within 90 seconds and the wait
+// carries on. Away longer and it stops without counting, unless the time ran out inside those 90 seconds.
+// A wait that went to Get help (helpAt, which may mean a call) is never stopped this way.
+function checkAway() {
+  const c = cravingNow(); if (!c || c.done || c.stopped || c.leftAt == null) return;
+  const left = c.leftAt; delete c.leftAt;
+  // Left by tapping one of the timer's own source links (readAt, within a few seconds): reading it never stops the wait (QA B2).
+  const reading = c.readAt != null && left - c.readAt >= 0 && left - c.readAt < 5000; delete c.readAt;
+  if (!c.helpAt && !reading && clockMs() - left > GRACE_MS && c.start + c.mins * 60000 > left + GRACE_MS) c.stopped = true;
+  save();
+}
+function onHidden() {
+  const c = cravingNow();
+  // Storage emptied while the page was open (the reset, or another copy cleared it): don't write the old data back (QA B11).
+  let cleared = false; try { cleared = localStorage.getItem(STORE_KEY) === null; } catch { /* storage blocked */ }
+  if (waitRunning() && !c.helpAt && c.leftAt == null && !cleared) { c.leftAt = clockMs(); save(); }
+  syncAwake();
+}
+// Keep the screen awake during a running wait (Screen Wake Lock). Where it isn't supported: nothing, and nothing shown.
+let wakeLock = null, wakeAsking = false;
+const wantAwake = () => view.name === 'craving' && waitRunning() && document.visibilityState !== 'hidden';
+function syncAwake() {
+  if (!wantAwake()) {
+    const w = wakeLock; wakeLock = null;
+    if (w) { try { Promise.resolve(w.release?.()).catch(() => {}); } catch { /* already gone */ } }
+    return;
+  }
+  if (wakeLock || wakeAsking || !navigator.wakeLock?.request) return;
+  wakeAsking = true;
+  Promise.resolve().then(() => navigator.wakeLock.request('screen')).then(w => {
+    wakeAsking = false;
+    if (!wantAwake() || wakeLock) { try { w.release?.(); } catch { /* fine */ } return; }
+    wakeLock = w; w.addEventListener?.('release', () => { if (wakeLock === w) wakeLock = null; });
+  }, () => { wakeAsking = false; });
+}
+// The breathing guide: the NHS 4-5-6 tip already in the app (tip.smoking.breathe): in for 4, hold for 5, out for 6.
+const BREATH_TIP = 'tip.smoking.breathe';
+const breathWord = sec => { const p = ((sec % 15) + 15) % 15; return p < 4 ? 'Breathe in' : p < 9 ? 'Hold' : 'Breathe out'; };
+const reduceMotion = () => { try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+const HALFWAY = "Halfway there. You're doing it.";
+const craveSecs = () => (clockMs() - (state.craving?.start || 0)) / 1000;
+const ringOffset = () => { const c = state.craving; return c ? (100 * craveLeft() / (c.mins * 60000)).toFixed(2) : '0'; };
+const halfway = () => { const c = state.craving; return !!c && craveLeft() <= c.mins * 30000; };
+// Updates the numbers in place each second (on the second since the start), without a re-render. It never keeps a test run alive (unref).
+function craveTick() {
+  clearTimeout(craveTimer);
+  const c = cravingNow();
+  if (view.name !== 'craving' || !waitRunning()) return;
+  if (craveLeft() <= 0) { finishCraving(true); render(); return; }
+  const el = id => document.getElementById(id);
+  const t = el('craveLeft'); if (t) t.textContent = mmss(craveLeft());
+  el('craveRing')?.setAttribute?.('stroke-dashoffset', ringOffset());
+  const w = el('breathWord'); if (w) w.textContent = breathWord(Math.floor(craveSecs()));
+  const hl = el('craveHalf'); if (hl && halfway()) hl.textContent = HALFWAY;
+  // Remember when the app was last seen with the timer, in case it closes without saying so.
+  if (!c.seenAt || clockMs() - c.seenAt >= 5000) { c.seenAt = clockMs(); save(); }
+  const next = 1000 - ((clockMs() - c.start) % 1000);
+  craveTimer = setTimeout(craveTick, next < 50 ? next + 1000 : next); craveTimer?.unref?.();
+}
+const ridden = h => (h.cravings || []).length;
+function cravingScreen() {
+  const c = cravingNow(); if (!c) return home();
+  if (!c.done && !c.stopped && craveLeft() <= 0) finishCraving();
+  const h = habitById(c.id), tips = tipsFor(h.type), tip = tips.length ? tips[(view.tipAt || 0) % tips.length] : null;
+  const line = CRAVE_LINE[h.type]?.(), src = line && SRC[line[1]];
+  const bt = TIPS.find(t => t.id === BREATH_TIP), sec = craveSecs();
+  const ask = view.askLeave && waitRunning() ? `<div class="notice soft" role="alertdialog" aria-labelledby="leaveQ">
+      <p id="leaveQ"><b>Leave the timer?</b> Your wait will stop and won't count.</p>
+      <div class="row"><button class="primary" data-act="keepwait">Keep waiting</button><button data-act="leavewait">Leave</button></div></div>` : '';
+  const top = c.stopped
+    ? `<h1>Your wait stopped when you left Steady.</h1><p>Want to start again?</p>
+      <div class="row"><button class="primary" data-act="cravestart">Start again</button><button data-act="craveend">Back home</button></div>`
+    : c.done
+    ? `<h1>You rode it out.</h1><p>That's ${plural(ridden(h), 'craving')} ridden out for ${esc(h.name)}.</p>
+      <div class="row"><button class="primary" data-act="cravemore">Wait 5 more minutes</button><button data-act="craveend">Back home</button></div>`
+    : `<h1>Let's wait this out together.</h1>
+      ${line ? `<p>${line[0]} <span class="small muted">(<a href="${esc(src[1])}" target="_blank" rel="noopener">${esc(src[0])}</a>)</span></p>` : ''}
+      <div class="crave-dial">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="track" cx="60" cy="60" r="54"/><circle id="craveRing" class="ring" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${ringOffset()}"/></svg>
+        <div class="breath${reduceMotion() ? ' still' : ''}" style="animation-delay:-${(((sec % 15) + 15) % 15).toFixed(1)}s" aria-hidden="true"></div>
+        <div class="crave-time" role="timer" aria-label="Time left"><b id="craveLeft">${mmss(craveLeft())}</b><span class="small muted">left of ${c.mins} minutes</span></div>
+      </div>
+      <p class="breath-word" id="breathWord">${breathWord(Math.floor(sec))}</p>
+      ${bt ? `<p class="small muted breath-src">${esc(bt.text)} (<a href="${esc(bt.url)}" target="_blank" rel="noopener">${esc(bt.source)}</a>)</p>` : ''}
+      <p class="half" id="craveHalf">${halfway() ? HALFWAY : ''}</p>
+      <div class="row center"><button class="ghost" data-act="cravestop">Stop</button></div>`;
+  return `<div class="narrow">${ask}
+    <div class="card"><div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>${top}</div>
+    ${c.stopped ? '' : `<section class="card"><h2>${c.done ? 'If it comes back' : 'While you wait'}</h2>
+      ${tip ? `${tip.general ? '<span class="eyebrow">General tip</span>' : ''}<p><b>${esc(tip.text)}</b> <span class="small muted">(<a href="${esc(tip.url)}" target="_blank" rel="noopener">${esc(tip.source)}</a>)</span></p>
+      ${tips.length > 1 ? '<div class="row"><button class="ghost" data-act="craveanother">Another tip</button></div>' : ''}` : ''}
+      ${planLine(h)}${rewardLine(h)}
+      <div class="row"><button data-act="cravejournal">Add to today's journal</button></div>
+      <p class="small muted">A craving is not a slip. Nothing is logged unless you tap.</p></section>`}</div>`;
+}
+// On home: the "Craving?" button under the Today card, or the one-pick "Which habit?".
+// There's no "Back to the timer" here any more: a running wait can't be left behind (Mark, 2026-11-13).
+function cravingCard() {
+  if (!state.habits.length) return '';
+  if (view.pickCrave) return `<section class="card"><h2>Craving? Which habit?</h2>
+    <div class="row">${state.habits.map(h => `<button data-act="cravefor:${h.id}">${esc(h.name)}</button>`).join('')}<button class="ghost" data-act="cancelcrave">Back</button></div></section>`;
+  return '<div class="row"><button class="crave-btn" data-act="craving">Craving?</button></div>';
 }
 
 // Parts of the bounce-back screen, shared by the one-habit and several-habit versions.
@@ -1598,26 +1851,30 @@ const keptStats = h => { const p = progress(h); return `<div class="kept">
         <div class="stat"><span class="eyebrow">Best run</span><b>${p.longest}</b></div>
       </div>`; };
 const healthLine = h => HEALTH[h.type] ? "<p class=\"small muted\">Your body's recovery starts again from today. Everything you earned is still yours.</p>" : '';
-// Each habit gets its own "Was it one of these?" row, with that habit type's choices, saved to that habit.
-const whyRow = h => `<div class="row">${[...planTriggers(h.type).map((x, i) => [String(i), x]), ['x', 'Something else']].map(([k, x]) =>
-        `<button type="button" data-why="${k}" data-whyfor="${h.id}" aria-pressed="${(h.slipWhy || {})[todayKey()] === x}">${esc(x)}</button>`).join('')}</div>`;
-const plansList = h => plansOf(h).length ? `<p class="small">Your plans:</p><ul class="small">${plansOf(h).map(pl => `<li><b>${esc(pl.text)}</b></li>`).join('')}</ul>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>';
+// Each habit gets its own "What was going on?" chips, the same 8 as the journal (DDD 8.7), saved to that habit.
+const whyRow = h => { const day = todayKey(), on = slipChips(h, day);
+  return `<div class="chips">${JTRIGGERS.map(([id, w]) => `<button type="button" class="chip-tag" data-why="${id}" data-whyfor="${h.id}" aria-pressed="${on.includes(id)}">${esc(w)}</button>`).join('')}</div>
+      ${on.includes('other') ? `<label class="why-other"><span class="sr-only">What was going on, in your words</span><input data-whyother="${h.id}" maxlength="${OTHER_MAX}" placeholder="What was going on? (optional)" value="${esc(slipOtherOf(h, day))}"></label>` : ''}`; };
+// The habit's own cues ("I finish a meal") live in the if-then plan maker, one tap away.
+const plansList = h => { const full = plansOf(h).length >= MAX_PLANS;
+  return `${plansOf(h).length ? `<p class="small">Your plans:</p><ul class="small">${plansOf(h).map(pl => `<li><b>${esc(pl.text)}</b></li>`).join('')}</ul>` : ''}
+      <div class="row"><button type="button" data-act="${full ? 'cardplans' : 'cardplan'}:${h.id}">${full ? 'Manage your if-then plans' : 'Make a plan for next time'}</button></div>`; };
 const SLIP_PRIVATE = '<p class="small muted">Only you see this. It stays on this phone, it\'s never a score, and you can skip it.</p>';
 function bounceScreen() {
   const hs = (view.ids || [view.id]).map(habitById).filter(Boolean); if (!hs.length) return home();
   const h = hs[0], many = hs.length > 1;
   const serious = hs.some(x => ['drinking', 'gambling', 'drugs', 'cannabis'].includes(x.type));
   // Warnings show once, if any habit needs them.
-  const notices = `${hs.some(x => x.type === 'drugs') ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${emergencyText(country())}.</p></div>` : ''}
+  const notices = `${hs.some(x => x.type === 'drugs') ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b>${cite('drugs.tolerance')} If you feel unwell, call ${emergencyText(country())}.</p></div>` : ''}
     ${serious ? `<div class="notice soft"><h3>If slips keep happening</h3><p>Talking to a professional can help. That's a strong step, not a failure.</p><div class="row"><button data-go="help">See help lines</button></div></div>` : ''}`;
   const top = `<h1>A slip is one day, not the whole story.</h1>
-      <p>It's normal to feel bad about it. What matters now is the next choice, and you've already shown you can do this.</p>`;
+      <p>It's normal to feel bad about it. What matters now is the next choice${hs.some(x => progress(x).clean > 0) ? ", and you've already shown you can do this" : ''}.</p>`;
   if (many) return `<div class="narrow">
     <div class="card"><span class="eyebrow">${hs.map(x => esc(x.name)).join(' · ')}</span>${top}
-      <p class="small muted">Your milestones and rewards stay. Only the current runs start again today. ${claim('slip.research')}</p></div>
+      <p class="small muted">Your milestones and rewards stay. Only the current runs start again today. ${claim('slip.research')}${cite('slip.research')}</p></div>
     ${hs.map(x => `<section class="card"><div class="habit-head"><span class="tile md">${glyph(habitIcon(x), 30)}</span><span class="eyebrow">${esc(x.name)}</span></div>
       ${keptStats(x)}${healthLine(x)}
-      <h3>What happened just before?</h3><p class="small">Was it one of these?</p>${whyRow(x)}${plansList(x)}</section>`).join('')}
+      <h3>What was going on?</h3><p class="small">Pick any, or skip it.</p>${whyRow(x)}${plansList(x)}</section>`).join('')}
     ${SLIP_PRIVATE}${notices}
     <button class="primary" data-go="home">Start my new runs</button></div>`;
   return `<div class="narrow">
@@ -1625,11 +1882,11 @@ function bounceScreen() {
       <div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>
       ${top}
       ${keptStats(h)}
-      <p class="small muted">Your milestones and rewards stay. Only the current run starts again today. ${claim('slip.research')}</p>
+      <p class="small muted">Your milestones and rewards stay. Only the current run starts again today. ${claim('slip.research')}${cite('slip.research')}</p>
       ${healthLine(h)}
     </div>
-    <section class="card"><h2>What happened just before?</h2>
-      <p>Noticing the trigger helps you plan for it next time. Was it one of these?</p>
+    <section class="card"><h2>What was going on?</h2>
+      <p>Noticing what was going on helps you plan for it next time. Pick any.</p>
       ${whyRow(h)}
       ${SLIP_PRIVATE}
       ${plansList(h)}
@@ -1650,7 +1907,7 @@ function addScreen() {
     <form id="addForm" class="card">
       <label>What are you stopping?<select id="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <fieldset><legend>Pick an icon</legend>${picker(HABIT_ICONS, icon, 'new')}</fieldset>
-      <label>Give it a name<input id="name" required maxlength="40" value="${esc(d.name || '')}" placeholder="${namePlaceholder}"></label>
+      <label>Give it a name<input id="name" required maxlength="40" value="${esc(d.name || '')}" placeholder="For example, ${namePlaceholder}"></label>
       ${drugs || cannabis ? '<p class="small muted">Name it anything you like. Your habits stay on this phone, and Steady shows this one as "Private".</p>' : ''}
       <label>Started on<input id="start" type="date" required value="${esc(d.start || todayKey())}" max="${todayKey()}"></label>
       <div class="two">
@@ -1663,13 +1920,13 @@ function addScreen() {
         <label>At clean days<input id="rTarget" type="number" min="1" step="1" inputmode="numeric" value="${esc(d.rTarget || '')}" placeholder="7"></label>
       </div>
       ${alcohol ? `<div class="notice" role="alert"><h3>Talk to a doctor first if you drink heavily or every day</h3>
-        <p>${claim('alcohol.withdrawal')} A doctor can help you stop safely.</p>
+        <p>${claim('alcohol.withdrawal')} A doctor can help you stop safely.${cite('alcohol.withdrawal')}</p>
         <p><b>Get emergency help right away</b> for any of these:</p>
         <ul>${claim('alcohol.emergency').map(s => `<li>${s}</li>`).join('')}</ul>
         <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor if I drink heavily or every day.</label></div>` : ''}
       ${drugs ? `<div class="notice" role="alert"><h3>Talk to a doctor before you stop</h3>
-        <p>${claim('drugs.doctor')}</p>
-        <p><b>${claim('drugs.tolerance')}</b></p>
+        <p>${claim('drugs.doctor')}${cite('drugs.doctor')}</p>
+        <p><b>${claim('drugs.tolerance')}</b>${cite('drugs.tolerance')}</p>
         <p>Steady is a support tool, not treatment. Free, confidential help lines are on the Get help screen.</p>
         <label class="check"><input id="ack" type="checkbox" ${d.ack ? 'checked' : ''}> I understand. I'll talk to a doctor before stopping anything that could cause withdrawal.</label></div>` : ''}
       ${cannabis ? `<div class="notice soft"><h3>Steady is a support tool, not treatment</h3><p>${claim('cannabis.mild')} ${claim('cannabis.doctor')}</p><p>${claim('cannabis.support')}</p><p>Free, confidential help lines are on the Get help screen.</p></div>` : ''}
@@ -1753,7 +2010,7 @@ function countryScreen() {
 
 function helpScreen() {
   const line = (label, num, note) => `<div class="help-line"><div class="label"><span class="small muted">${label}</span><span class="phone">${num}</span>${note ? `<span class="small muted">${note}</span>` : ''}</div>
-    <div class="row"><button class="ghost" data-copy="${num}" aria-label="Copy ${num}">${glyph('copy', 16)}Copy</button><a class="btn call" href="tel:${num.replace(/[^0-9+]/g, '')}">${glyph('ui:phone', 16)}Call</a></div></div>`;
+    <div class="row"><button class="ghost" data-copy="${num}" aria-label="Copy ${num}">${glyph('copy', 16)}Copy</button><a class="btn call" href="tel:${num.replace(/[^0-9+]/g, '')}" aria-label="Call ${num}">${glyph('ui:phone', 16)}Call</a></div></div>`;
   const lines = c => c.lines.map(l => line(...l)).join('');
   const c = country();
   const site = (s, label) => `<a href="${s}" target="_blank" rel="noopener">${label || s.replace(/^https:\/\/(www\.)?|\/$/g, '')}</a>`;
@@ -1767,7 +2024,7 @@ function helpScreen() {
     return `<section class="card"><h2>${title}</h2><p class="small muted">${k.about}</p>${lines(k)}${extra(k)}</section>`;
   };
   return `
-    <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button></header>
+    <header class="top">${waitRunning() ? `<button class="ghost back" data-go="craving">${glyph('arrow-left', 18)}Back to the timer</button>` : `<button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button>`}</header>
     <div class="brand"><h1>Get help</h1>
       <p class="small">Help lines for: <b>${c.name}</b> · <button class="link" data-go="country">Change</button></p></div>
     <section class="card urgent" aria-label="Emergency"><span class="eyebrow">Emergency</span><h2>In danger right now?</h2>
@@ -1781,15 +2038,35 @@ function helpScreen() {
       ${kind('Quit smoking or vaping', c.quit, k => `${k.text ? `<p class="small">Or text <b>${k.text[0]}</b> to <span class="num">${k.text[1]}</span>.</p>` : ''}${more(k) ? `<p class="small">${more(k)}</p>` : ''}`)}
       ${kind('Gambling', c.gambling, k => `<p class="small">${more(k)}${notEmergency}</p>`)}
       ${kind('Drug use', c.drugs, k => `<p class="small">${more(k)}${notEmergency}</p>`)}
-      <section class="card"><h2>Alcohol</h2><p>${claim('alcohol.doctor')} Get emergency help right away for: ${claim('alcohol.emergency').join(', ').toLowerCase()}.</p></section>
+      <section class="card"><h2>Alcohol</h2><p>${claim('alcohol.doctor')} Get emergency help right away for: ${claim('alcohol.emergency').join(', ').toLowerCase()}.${cite('alcohol.emergency')}</p></section>
     </div>
     <p class="small muted">Every number re-checked against official sources on 10 Nov 2026. Confirm them again before a public launch.</p>`;
 }
 
 // ---------- events ----------
+// Stay with the wait (DDD 8.4): a way off the timer screen while a wait runs asks first. Get help never asks and never
+// stops the wait (helpAt marks it, so a call from there doesn't stop it either). Buttons that stay on the timer don't ask.
+const STAY_ACTS = new Set(['cravestop', 'craveanother', 'cravemore', 'craveend', 'cravestart', 'keepwait', 'leavewait']);
+let pendingLeave = null, unguarding = false;
+function syncBackGuard() {
+  try {
+    const guarded = !!history.state?.steadyWait;
+    if (waitRunning() && !guarded) history.pushState({ steadyWait: 1 }, '');
+    else if (!waitRunning() && guarded) { unguarding = true; history.back(); }
+  } catch { /* no history */ }
+}
+function leaving(fn, target) {
+  if (view.name !== 'craving' || !waitRunning()) return fn();
+  if (target === 'help') { state.craving.helpAt = clockMs(); save(); return fn(); }
+  pendingLeave = fn; view.askLeave = true; render(); window.scrollTo(0, 0);
+}
 function bind() {
-  app.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
-  app.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => go('habit', { id: b.dataset.open })));
+  // A source link on the timer opens in a new tab: note it, so reading the page doesn't stop the wait (QA B2, Mark 2026-11-13).
+  if (view.name === 'craving') app.querySelectorAll('a[target="_blank"]').forEach(a => a.addEventListener('click', () => {
+    if (waitRunning()) { state.craving.readAt = clockMs(); save(); }
+  }));
+  app.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => leaving(() => go(b.dataset.go), b.dataset.go)));
+  app.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => leaving(() => go('habit', { id: b.dataset.open }))));
   app.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
     const n = b.dataset.copy;
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(n).then(() => toast(`Copied ${n}`), () => toast(`Number: ${n}`));
@@ -1799,7 +2076,7 @@ function bind() {
     const h = habitById(view.id); const r = h.rewards.find(x => x.id === b.dataset.claim);
     r.claimed = true; save(); render(); toast(`Enjoy it: ${r.name}`);
   }));
-  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => act(b.dataset.act)));
+  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { const a = b.dataset.act; if (STAY_ACTS.has(a)) act(a); else leaving(() => act(a)); }));
   app.querySelectorAll('[data-slippick]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.slippick, p = view.slipPicked || [];
     view.slipPicked = p.includes(id) ? p.filter(x => x !== id) : [...p, id]; render();
@@ -1868,7 +2145,8 @@ function bind() {
   }
   // journal (DDD 7.10): the draft lives in view.jdraft so a re-render never loses typed text
   const jdraft = () => (view.jdraft ||= { mood: 0, note: '', habits: [], triggers: [], ...(state.journal[view.jday || todayKey()] || {}) });
-  app.querySelectorAll('[data-jmood]').forEach(b => b.addEventListener('click', () => go('journal', { jdraft: { ...jdraft(), mood: Number(b.dataset.jmood) } })));
+  // A face on home saves the mood at once (QA B6: "Tap a face" reads like one tap), then opens the journal to add more.
+  app.querySelectorAll('[data-jmood]').forEach(b => b.addEventListener('click', () => homeMood(Number(b.dataset.jmood))));
   // Picking a mood updates the circles in place (no re-render), so the selection animates smoothly and typed text stays put.
   app.querySelectorAll('[data-mood]').forEach(b => b.addEventListener('click', () => {
     const n = Number(b.dataset.mood); jdraft().note = val('jNote'); jdraft().mood = n;
@@ -1920,7 +2198,10 @@ function bind() {
   app.querySelectorAll('[data-why]').forEach(b => b.addEventListener('click', () => {
     const h = habitById(b.dataset.whyfor || view.id); if (!h) return;
     setSlipWhy(h, b.dataset.why); render();
+    if (b.dataset.why === 'other' && slipChips(h, todayKey()).includes('other')) app.querySelector(`[data-whyother="${h.id}"]`)?.focus?.();
   }));
+  // Typing saves as you go, without a re-render, so the keyboard stays open.
+  app.querySelectorAll('[data-whyother]').forEach(i => i.addEventListener('input', () => { const h = habitById(i.dataset.whyother); if (h) setSlipOther(h, i.value); }));
   const rewardForm = document.getElementById('rewardForm');
   if (rewardForm) rewardForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -1955,6 +2236,26 @@ function act(a) {
     if (state.habits.length === 1) slipFor(state.habits[0].id);
     else { view = { name: 'home', pickSlip: true }; render(); }
   }
+  // Craving rescue (DDD 8.4)
+  if (a === 'craving') { if (state.habits.length === 1) startCraving(state.habits[0].id); else { view = { name: 'home', pickCrave: true }; render(); } }
+  if (a === 'cancelcrave') { view = { name: 'home' }; render(); }
+  if (a === 'cravestop') { state.craving = null; save(); go('home'); toast('Timer stopped'); }
+  if (a === 'craveend') { state.craving = null; save(); go('home'); }
+  if (a === 'cravemore' && cravingNow()) startCraving(state.craving.id, 5, true);
+  if (a === 'cravestart' && cravingNow()) startCraving(state.craving.id);
+  if (a === 'keepwait') { pendingLeave = null; view.askLeave = false; render(); }
+  // Leave: go where the user tapped. The wait stops there and counts nothing (render clears it off the timer).
+  if (a === 'leavewait') {
+    const f = pendingLeave || (() => go('home')); pendingLeave = null; view.askLeave = false;
+    f();
+    if (state.craving && !state.craving.done) { state.craving = null; save(); }
+    if (view.name === 'craving') go('home');
+  }
+  if (a === 'craveanother') { view.tipAt = (view.tipAt || 0) + 1; render(); }
+  if (a === 'cravejournal' && cravingNow()) {
+    const id = state.craving.id, e = state.journal[todayKey()] || {};
+    go('journal', { jdraft: { mood: 0, note: '', habits: [], triggers: [], ...e, habits: [...new Set([...(e.habits || []), id])] } });
+  }
   if (a === 'logslips') slipFor(state.habits.filter(h => (view.slipPicked || []).includes(h.id)).map(h => h.id));
   if (a === 'cancelslip') { view = { name: 'home' }; render(); }
   if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
@@ -1977,6 +2278,7 @@ function act(a) {
   if (a === 'restorecancel') { view.restore = null; render(); }
   // Buttons on the slip and low-mood cards: open the habit at its tips (all shown) or at its plans (picker open for a new one).
   const [verb, arg, third] = a.split(':');
+  if (verb === 'cravefor' && habitById(arg)) startCraving(arg);
   if (verb === 'cardtips' && habitById(arg)) { go('habit', { id: arg, tipsAll: true }); document.getElementById('tipsCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
   // "Make a Friday plan": the plan maker's own-words box, started for the user (Mark, 2026-11-12).
   if (verb === 'cardweekplan' && habitById(arg) && WEEKDAYS[third]) { go('habit', { id: arg, planOpen: true, planOwn: true, planOwnText: `If it's ${WEEKDAYS[third]}, then I will ` }); document.getElementById('planCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
@@ -2014,6 +2316,37 @@ if (IS_SITE && !state.siteFresh) { // once: clear demo examples saved before thi
 if (location.hash === '#help') view = { name: 'help' };
 else if (IS_SITE && !COUNTRIES[state.country]) view = { name: 'country', first: true, then: shortcut }; // first launch: "Where are you?"
 else view = afterShortcut(shortcut);
+// A wait that was running when the app closed (DDD 8.4): the 90-second rule decides. Back in time, the timer carries on;
+// later, "Your wait stopped when you left Steady." If the app closed without saying so, the last time it was seen counts.
+if (cravingNow() && !state.craving.done) {
+  const c = state.craving;
+  if (!c.stopped && c.leftAt == null) c.leftAt = c.seenAt ?? c.start;
+  checkAway();
+  if (view.name === 'home' && !shortcut) view = { name: 'craving' };
+}
+// Leaving the app and coming back: note the time on the way out, check it on the way back in.
+document.addEventListener?.('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { onHidden(); return; }
+  checkAway();
+  if (view.name === 'craving') render(); else syncAwake();
+});
+window.addEventListener?.('pagehide', onHidden);
+// The Back button during a wait (QA B3): Back lands on the guard entry, and the timer asks "Leave the timer?" instead of
+// leaving Steady. On Get help, Back returns to the timer. When the wait ends, the guard entry is taken away again.
+window.addEventListener?.('popstate', () => {
+  if (unguarding) { unguarding = false; return; }
+  if (!waitRunning()) return;
+  try { history.pushState({ steadyWait: 1 }, ''); } catch { /* no history */ }
+  if (view.name === 'craving') leaving(() => go('home')); else go('craving');
+});
+// Another open copy of Steady saved (QA B11): take its data, so the two copies don't overwrite each other.
+window.addEventListener?.('storage', e => {
+  if (e?.key !== STORE_KEY) return;
+  const s = load(); if (!s || !Array.isArray(s.habits)) return;
+  state = tidyState(s);
+  if (view.id && !habitById(view.id)) view = { name: 'home' };
+  render();
+});
 applyTheme();
 render();
 </script>
