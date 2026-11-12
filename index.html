@@ -328,6 +328,7 @@ const STORE_KEY = 'steady.v1';
 const CLAIMS = {
   'milestone.66': 'Many people find things feel more automatic around here. It varies a lot, from 18 to 254 days, so keep going either way.',
   'slip.research': "In research on building habits, missing one day didn't undo people's progress.",
+  'mood.trigger': 'Health services list feeling low, stressed or lonely among the common triggers for cravings.',
   'plan.ifthen': "Plans that name a trigger and what you'll do instead help people follow through.",
   'plan.picked': "In one study of drinking, choosing a ready-made plan from a list worked as well as writing your own. Plans help some people follow through. The effect is modest, so treat a plan as one tool among others.",
   'alcohol.doctor': 'If you drink heavily or every day, talk to a doctor before you stop.',
@@ -873,13 +874,17 @@ function checkinCard() {
   if (state.checkin === t) return `<section class="card checkin done"><span class="eyebrow">Today</span><h2 class="with-ic"><span class="tick">${glyph('check', 18)}</span>Checked in.</h2><p class="muted">${cheerFor(t)}</p></section>`;
   if (view.confirmClean) return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>Log today as a clean day?</h2>
     <div class="row"><button class="primary" data-act="checkin">Yes, clean day</button><button class="ghost" data-act="cancelslip">Not now</button></div></section>`;
-  if (view.pickSlip) return `<section class="card checkin"><h2>Which habit?</h2>
-    <div class="row">${state.habits.map(h => `<button data-slipfor="${h.id}">${esc(h.name)}</button>`).join('')}<button class="ghost" data-act="cancelslip">Back</button></div></section>`;
+  // Pick one or more, like the journal chips, then "Log slip" (Mark, 2026-11-12; DDD 8.3).
+  if (view.pickSlip) { const picked = view.slipPicked || [];
+    return `<section class="card checkin"><h2>Which habit?</h2><p class="small muted">Pick one or more.</p>
+    <div class="row">${state.habits.map(h => `<button type="button" data-slippick="${h.id}" aria-pressed="${picked.includes(h.id)}">${esc(h.name)}</button>`).join('')}</div>
+    <div class="row"><button class="primary" data-act="logslips"${picked.length ? '' : ' disabled'}>Log slip</button><button class="ghost" data-act="cancelslip">Back</button></div></section>`; }
   return `<section class="card checkin"><span class="eyebrow">Daily check-in</span><h2>How did today go?</h2>
     <div class="row"><button class="primary" data-act="checkin">Clean day</button><button data-act="checkinslip">I slipped</button></div></section>`;
 }
 // ---------- daily journal (DDD 7.10) ----------
-// One entry per day: { mood: 1-5, note, habits: [habitId] }. It stays on this phone and is never read or judged by the app.
+// One entry per day: { mood: 1-5, note, habits: [habitId] }. It stays on this phone. The note is never read or judged by the app;
+// only the mood and chips are counted, on this phone, for the cards and patterns (DDD 8.3).
 // Mood faces: 12x12 pixel art in the same style as the habit icons (k ink, g gold, a teal tear, r mouth). DDD 7.10, ADR 0009.
 const MOOD_TOP = ['...kkkkkk...', '..kggggggk..', '.kggggggggk.', 'kggggggggggk']; // top of the face
 const MOOD_PIX = {
@@ -929,11 +934,14 @@ function journalCard() {
     <p class="eyebrow hint">Tap a face</p>${moodPicker('data-jmood')}</section>`;
 }
 // Gentle support under a "Very low" entry. It follows the country and never reads the note.
-function lowMoodNotice() {
+// Someone to talk to, for the user's country. Also used by the low-mood card on home (DDD 8.3).
+function reachText() {
   const c = country();
-  const reach = c.crisis ? `You can call ${crisisText(c)}, any time.`
+  return c.crisis ? `You can call ${crisisText(c)}, any time.`
     : `If you're in danger, call your local emergency number. To find someone to talk to, visit <a href="${claim('help.directory').site}" target="_blank" rel="noopener">findahelpline.com</a>.`;
-  return `<div class="notice soft"><h3>Having a really hard day?</h3><p>You don't have to face it alone. ${reach}</p>
+}
+function lowMoodNotice() {
+  return `<div class="notice soft"><h3>Having a really hard day?</h3><p>You don't have to face it alone. ${reachText()}</p>
     <div class="row"><button data-go="help">See help lines</button></div></div>`;
 }
 function journalScreen() {
@@ -945,7 +953,7 @@ function journalScreen() {
   const tags = e => e.habits.map(id => habitById(id)).filter(Boolean).map(h => esc(h.name)).join(', ');
   return `
     <header class="top"><button class="ghost back" data-go="home">${glyph('arrow-left', 18)}Back</button></header>
-    <div class="brand"><h1>Journal</h1><p class="small muted">Your journal stays on this phone. It only leaves when you save a backup yourself.</p></div>
+    <div class="brand"><h1>Journal</h1><p class="small muted">Your journal stays on this phone. Only the app on this phone looks at it, to spot patterns. It only leaves when you save a backup yourself.</p></div>
     <div class="detail-grid">
       <section class="card mood-card"><h2>${isToday ? 'How are you feeling?' : `How you felt on ${niceDate(key)}`}</h2>
         <form id="journalForm">
@@ -962,6 +970,7 @@ function journalScreen() {
             ${state.journal[key] ? `<button type="button" class="ghost danger" data-jremove="${key}">${view.confirmJRemove === key ? 'Tap again to remove' : 'Remove'}</button>` : ''}</div>` : ''}
         </form>
       </section>
+      ${patternsCard()}
       <section class="card"><h2>Earlier days</h2>
         ${past.length ? past.map(k => { const e = state.journal[k]; const m = moodOf(e.mood);
           return `<div class="entry"><span class="small muted">${niceDate(k)}</span><b>${faceImg(e.mood, 22)} ${m[2]}</b>
@@ -969,6 +978,7 @@ function journalScreen() {
             <div class="row"><button class="ghost" data-jedit="${k}">Edit</button><button class="ghost danger" data-jremove="${k}">${view.confirmJRemove === k ? 'Tap again to remove' : 'Remove'}</button></div></div>`; }).join('')
           : '<p class="small muted">Nothing here yet. Each day you write something, it shows up here.</p>'}
       </section>
+      ${reminderSwitchCard()}
       ${dataCard()}
     </div>`;
 }
@@ -1013,7 +1023,9 @@ function backupDataOk(d) {
     && (e.habits === undefined || (Array.isArray(e.habits) && e.habits.every(id => typeof id === 'string')));
   const daysOk = ['lastBackup', 'dataSince', 'backupSnooze', 'checkin'].every(k => d[k] === undefined || d[k] === null || isDay(d[k]));
   return d.habits.every(habitOk) && typeof j === 'object' && !Array.isArray(j) && Object.entries(j).every(entryOk) && daysOk
-    && (d.demoOffsetDays === undefined || Number.isInteger(d.demoOffsetDays));
+    && (d.demoOffsetDays === undefined || Number.isInteger(d.demoOffsetDays))
+    && (d.patternReminder === undefined || typeof d.patternReminder === 'boolean')
+    && ['cardHidden', 'patternHidden'].every(k => d[k] === undefined || (d[k] && typeof d[k] === 'object' && !Array.isArray(d[k]) && Object.values(d[k]).every(isDay)));
 }
 // Reads a backup file's text. Returns { data, made }, { needPassword }, or { error } with a plain message. Never changes the phone.
 async function readBackup(text, password = '') {
@@ -1085,6 +1097,241 @@ function backupDue() {
 // It never names a habit or mentions the journal (ADR 0012).
 const backupCard = () => backupDue() ? `<div class="notice soft"><h3>Back up your progress?</h3><p class="small">Clearing your browser can erase it.</p>
   <div class="row"><button data-act="backupnow">Back up now</button><button class="ghost" data-act="backupsnooze">Not now</button></div></div>` : '';
+
+// ---------- opening cards (DDD 8.3, ADR 0011 points 7-9): one soft card on home, only when the app is opened ----------
+// Order: a slip today, then a few low days, then a pattern. Note text and "Other" words are never read.
+const LOW_DAYS = 4, LOW_NEEDED = 2; // Mark, 2026-11-12: 2 low days out of the last 4
+const remindersOn = (s = state) => s.patternReminder !== false;
+const trigWord = id => JTRIGGERS.find(([t]) => t === id)?.[1];
+// Low or Very low on at least 2 of today and the 3 days before. Days without an entry count as neither.
+function lowMoodRun(s, today) {
+  const low = Array.from({ length: LOW_DAYS }, (_, i) => addDays(today, -i)) // newest first
+    .filter(k => { const m = Number(s.journal?.[k]?.mood); return m === 1 || m === 2; });
+  if (low.length < LOW_NEEDED || !s.habits.length) return null;
+  // The habit tagged most often on those entries (tie: the most recent); none tagged: the longest current run.
+  const tally = {};
+  low.forEach((k, i) => [...new Set(s.journal[k].habits || [])].forEach(id => {
+    if (!s.habits.some(h => h.id === id)) return;
+    tally[id] = tally[id] || { n: 0, recent: i }; tally[id].n++;
+  }));
+  const top = Object.entries(tally).sort((a, b) => b[1].n - a[1].n || a[1].recent - b[1].recent)[0];
+  const habit = top ? s.habits.find(h => h.id === top[0]) : [...s.habits].sort((a, b) => progress(b).run - progress(a).run)[0];
+  // The trigger picked most often (tie: the order of the chips).
+  const count = {};
+  low.forEach(k => triggersOf(s.journal[k]).forEach(t => { count[t] = (count[t] || 0) + 1; }));
+  const trigger = JTRIGGERS.map(([id]) => id).filter(id => count[id]).sort((a, b) => count[b] - count[a])[0] || null;
+  return { habit, trigger, days: low.length };
+}
+// Patterns (DDD 8.3, ADR 0011 points 2-4): simple counting, no AI. Each slip in the last 60 days gives a window (the slip day
+// and the day before). In each window it notes the chips and a Low or Very low mood from journal entries that are untagged or
+// tagged to that habit, plus the slip screen's "Was it one of these?" answer (Mark, 2026-11-12): read as a chip when it matches one
+// ("I feel stressed" counts as Stressed), else counted as its own words ("I finish a meal"). A pattern needs at least 3 slips and
+// the same tag in at least 2 windows. Note text is never read.
+const PATTERN_DAYS = 60, PATTERN_SLIPS = 3, PATTERN_HITS = 2;
+const TAG_ORDER = [...JTRIGGERS.map(([id]) => id), 'lowmood'];
+const tagRank = t => (TAG_ORDER.includes(t) ? TAG_ORDER.indexOf(t) : TAG_ORDER.length); // slip-screen words come after the chips on a tie
+const whyTag = why => whyChip(why) || (why === 'Something else' ? 'other' : `why:${why}`);
+function findPatterns(s, today) {
+  return s.habits.map(h => {
+    const slips = [...new Set(h.slips)].filter(k => k <= today && dayNum(today) - dayNum(k) < PATTERN_DAYS).sort();
+    if (slips.length < PATTERN_SLIPS) return null;
+    const hits = {}, last = {};
+    slips.forEach(k => {
+      const tags = new Set();
+      [k, addDays(k, -1)].forEach(d => {
+        const e = s.journal?.[d]; if (!e) return;
+        const about = Array.isArray(e.habits) ? e.habits : [];
+        if (about.length && !about.includes(h.id)) return;
+        triggersOf(e).forEach(t => tags.add(t));
+        if (Number(e.mood) === 1 || Number(e.mood) === 2) tags.add('lowmood');
+      });
+      const why = (h.slipWhy || {})[k];
+      if (typeof why === 'string' && why) tags.add(whyTag(why));
+      tags.forEach(t => { hits[t] = (hits[t] || 0) + 1; last[t] = k; });
+    });
+    const tag = Object.keys(hits).filter(t => hits[t] >= PATTERN_HITS).sort((a, b) => hits[b] - hits[a] || tagRank(a) - tagRank(b))[0];
+    return tag ? { habit: h, tag, hits: hits[tag], slips: slips.length, last: last[tag] } : null;
+  }).filter(Boolean).sort((a, b) => b.hits - a.hits || b.hits / b.slips - a.hits / a.slips);
+}
+// Plain words that state only what was logged: "Stressed came up around 3 of your last 4 slips of Cigarettes."
+const tagText = t => (t === 'lowmood' ? 'A low mood' : t.startsWith('why:') ? `"${esc(t.slice(4))}"` : esc(trigWord(t)));
+const patternText = p => `${tagText(p.tag)} came up around ${p.hits} of your last ${p.slips} slips of ${esc(p.habit.name)}`;
+// More patterns from the slip dates alone (Mark, 2026-11-12; DDD 8.3). No journal needed. Each has a minimum before it shows.
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const weekdayOf = k => new Date(dayNum(k) * 86400000).getUTCDay();
+const recentSlips = (h, today) => [...new Set(h.slips)].filter(k => k <= today && dayNum(today) - dayNum(k) < PATTERN_DAYS).sort();
+// 1. When slips happen: at least 3 slips on the same weekday, and at least half of the slips in the last 60 days.
+function slipWeekdays(s, today) {
+  return s.habits.map(h => {
+    const slips = recentSlips(h, today), count = {};
+    slips.forEach(k => { const d = weekdayOf(k); count[d] = (count[d] || 0) + 1; });
+    const day = Object.keys(count).map(Number).sort((a, b) => count[b] - count[a] || a - b)[0];
+    return day !== undefined && count[day] >= 3 && count[day] * 2 >= slips.length ? { kind: 'weekday', habit: h, day, hits: count[day], slips: slips.length, last: slips.filter(k => weekdayOf(k) === day).pop() } : null;
+  }).filter(Boolean).sort((a, b) => b.hits - a.hits);
+}
+// 2. Proof of progress: the last 3 clean runs each longer than the one before. Runs are counted like "Best run"
+// (from the start or a slip to the next slip). The current run joins only once it's already the longest of the three.
+function longerRuns(s, today) {
+  return s.habits.map(h => {
+    const slips = [...new Set(h.slips)].filter(k => k <= today).sort();
+    const runs = []; let prev = h.start;
+    slips.forEach(k => { runs.push(dayNum(k) - dayNum(prev)); prev = k; });
+    const current = dayNum(today) - dayNum(prev);
+    const now = slips.length && current > runs[runs.length - 1];
+    const last = (now ? [...runs, current] : runs).slice(-3);
+    return last.length === 3 && last[0] >= 1 && last[0] < last[1] && last[1] < last[2] ? { kind: 'runs', habit: h, runs: last, ongoing: !!now, last: slips[slips.length - 1] } : null;
+  }).filter(Boolean);
+}
+// 3. Habits that slip together: two habits with a slip on the same day at least 3 times in the last 60 days.
+function slipTogether(s, today) {
+  const out = [];
+  s.habits.forEach((a, i) => s.habits.slice(i + 1).forEach(b => {
+    const days = recentSlips(a, today).filter(k => b.slips.includes(k));
+    if (days.length >= 3) out.push({ kind: 'together', habit: a, other: b, hits: days.length, last: days[days.length - 1] });
+  }));
+  return out.sort((x, y) => y.hits - x.hits);
+}
+// Everything for the Journal's Patterns card, and the first one for the home card, in this order.
+const allPatterns = (s, today) => [...findPatterns(s, today).map(p => ({ kind: 'trigger', ...p })), ...slipWeekdays(s, today), ...slipTogether(s, today), ...longerRuns(s, today)];
+// Does a pattern still fit what's happening now? (Mark, 2026-11-12; DDD 8.3, ADR 0011 point 13). Worked out fresh each day,
+// so a new slip that fits makes it live again. { broken, cheer, clean }
+const BROKEN_RUN = 7;
+const runNow = (h, today) => { const past = h.slips.filter(k => k <= today).sort(); return dayNum(today) - dayNum(past.length ? past[past.length - 1] : h.start); };
+function patternNow(p, today) {
+  if (p.kind === 'weekday') {
+    // Broken once that weekday has passed clean after its last slip on it. The day after the first clean one: good news, once.
+    const gap = dayNum(today) - dayNum(p.last);
+    return { broken: gap > 7, cheer: gap === 8 };
+  }
+  if (p.kind === 'runs') return { broken: false };
+  const clean = Math.min(...[p.habit, p.other].filter(Boolean).map(h => runNow(h, today)));
+  return { broken: clean >= BROKEN_RUN, clean };
+}
+// A weekday pattern shows on Home only the day before and on the day itself.
+const weekdayNear = (day, today) => { const d = weekdayOf(today); return d === day || (d + 1) % 7 === day; };
+const patternKey = p => [p.kind, p.habit.id, p.kind === 'weekday' ? p.day : p.kind === 'trigger' ? p.tag : p.kind === 'together' ? p.other.id : ''].join('|');
+// "Hide this pattern" hides it until a new slip that still fits it (state.patternHidden: key -> the day it was hidden).
+const patternHiddenNow = (s, p) => { const d = (s.patternHidden || {})[patternKey(p)]; return !!d && !(p.last > d); };
+const HOME_ORDER = ['runs', 'trigger', 'weekday', 'together']; // good news first
+function homePattern(s, today) {
+  return allPatterns(s, today).map(p => ({ ...p, ...patternNow(p, today) }))
+    .filter(p => !patternHiddenNow(s, p) && (p.cheer || (!p.broken && (p.kind !== 'weekday' || weekdayNear(p.day, today)))))
+    .sort((a, b) => HOME_ORDER.indexOf(a.kind) - HOME_ORDER.indexOf(b.kind))[0] || null;
+}
+// After a broken pattern on the Journal list: "You got through Friday clean." or "9 clean days since."
+function brokenNote(p, today) {
+  const n = patternNow(p, today);
+  return !n.broken ? '' : p.kind === 'weekday' ? ` You got through ${WEEKDAYS[p.day]} clean.` : ` ${n.clean} clean days since.`;
+}
+function patternLine(p) {
+  if (p.kind === 'trigger') return patternText(p);
+  if (p.kind === 'weekday') return `${p.hits} of your last ${p.slips} slips of ${esc(p.habit.name)} were on a ${WEEKDAYS[p.day]}`;
+  if (p.kind === 'together') return `${esc(p.habit.name)} and ${esc(p.other.name)} slipped on the same day ${p.hits} times in the last ${PATTERN_DAYS} days`;
+  return `Your clean runs of ${esc(p.habit.name)} are getting longer: ${p.runs[0]}, then ${p.runs[1]}, then ${p.runs[2]} days${p.ongoing ? ' so far' : ''}`;
+}
+const PATTERN_NOTE = {
+  trigger: 'Counted from the slip day and the day before. Only this phone looks.',
+  weekday: `Counted from your slip days over the last ${PATTERN_DAYS} days. Worth planning that day a little differently.`,
+  together: 'When two habits slip together, a plan that covers both can help.',
+  runs: 'Every slip still leaves your clean days and rewards in place. Keep going.',
+};
+// Which card shows today, if any. The slip and low-mood cards have no dismiss button (Mark, 2026-11-12: a reminder is enough);
+// pattern cards have "Hide this pattern" (ADR 0011 point 13). The switch on the Journal screen turns all of them off.
+function openingCard(s = state, today = todayKey()) {
+  if (!remindersOn(s) || !s.habits.length) return null;
+  const slipped = s.habits.find(h => h.slips.includes(today));
+  if (slipped) {
+    // Today's chips, unless today's entry is tagged only to other habits.
+    const e = s.journal?.[today], tags = e?.habits || [];
+    const fits = e && (!tags.length || tags.includes(slipped.id));
+    return { kind: 'slip', habit: slipped, triggers: fits ? triggersOf(e) : [] };
+  }
+  const low = lowMoodRun(s, today);
+  if (low) return { kind: 'lowMood', ...low };
+  const pat = homePattern(s, today);
+  return pat ? { ...pat, kind: 'pattern', pkind: pat.kind } : null;
+}
+// Which sourced tips suit each chip (Mark, 2026-11-12). The tips and their sources are unchanged (ADR 0010); only this pairing
+// is ours, made by reading each tip. The first tip here that belongs to the habit's type is used.
+const CHIP_TIPS = {
+  stressed: ['tip.smoking.breathe', 'tip.vaping.delay', 'tip.alcohol.wave', 'tip.gambling.breathe', 'tip.cannabis.general.breathe', 'tip.druguse.move', 'tip.overeating.nonfood'],
+  bored: ['tip.smoking.hands', 'tip.vaping.switch', 'tip.cannabis.general.delay', 'tip.druguse.newthings', 'tip.overeating.nonfood', 'tip.phone.boredom'],
+  tired: ['tip.overeating.nomeal', 'tip.phone.bedtime'],
+  lonely: ['tip.smoking.support', 'tip.vaping.buddy', 'tip.gambling.talk', 'tip.cannabis.general.people', 'tip.druguse.reconnect', 'tip.overeating.nonfood'],
+  'with-others': ['tip.smoking.support', 'tip.vaping.no', 'tip.alcohol.no', 'tip.druguse.people', 'tip.phone.tellpeople'],
+  argument: ['tip.smoking.breathe', 'tip.vaping.delay', 'tip.alcohol.wave', 'tip.gambling.delay', 'tip.cannabis.general.breathe', 'tip.druguse.move', 'tip.overeating.kind'],
+  celebrating: ['tip.smoking.drinks', 'tip.vaping.no', 'tip.alcohol.no', 'tip.druguse.alcohol', 'tip.gambling.route', 'tip.overeating.plate'],
+};
+// The answer to "Was it one of these?" on the slip screen, read as a chip so it can pick a tip too.
+// Only clear matches: "I first wake up" isn't Tired and "I'm alone at night" isn't Lonely, so those stay as their own words.
+const WHY_CHIP = [[/stress|upset|low/i, 'stressed'], [/bored/i, 'bored'], [/can't sleep|tired/i, 'tired'],
+  [/lonely/i, 'lonely'], [/party|celebrat/i, 'celebrating'], [/friends|people/i, 'with-others']];
+const whyChip = why => (WHY_CHIP.find(([re]) => re.test(why || '')) || [])[1];
+// A tip for what was going on, if one fits; else a general tip for the habit. { tip, matched }
+function tipFor(h, chips = []) {
+  const own = tipsFor(h.type);
+  for (const c of chips) {
+    const t = (CHIP_TIPS[c] || []).map(id => own.find(x => x.id === id)).find(Boolean);
+    if (t) return { tip: t, matched: true };
+  }
+  return own.length ? { tip: own[0], matched: false } : null;
+}
+const tipLine = (h, found) => found ? `<p>${found.matched ? 'A tip that may help' : `A tip for ${esc(h.name)}`}: <b>${esc(found.tip.text)}</b>
+  <span class="small muted">(<a href="${esc(found.tip.url)}" target="_blank" rel="noopener">${esc(found.tip.source)}</a>)</span></p>` : '';
+const planLine = h => { const pl = plansOf(h)[0]; return pl ? `<p class="small">Your plan for ${esc(h.name)}: <b>${esc(pl.text)}</b></p>` : ''; };
+function rewardLine(h) {
+  const p = progress(h), r = h.rewards.find(x => !x.claimed);
+  return r ? `<p class="small">Still waiting for you: <b>${esc(r.name)}</b> ${rewardGoal(r, h)}${rewardUnlocked(r, p) ? ' (unlocked)' : ''}.</p>` : '';
+}
+const tipsButton = h => tipsFor(h.type).length ? `<button data-act="cardtips:${h.id}">Tips</button>` : '';
+// Words: say only what the user logged. Never "you are", never a guess that a slip is coming (ADR 0011).
+function openingCardHtml() {
+  const c = openingCard(); if (!c) return '';
+  const h = c.habit;
+  if (c.kind === 'slip') {
+    const why = (h.slipWhy || {})[todayKey()];
+    const said = [...c.triggers.map(trigWord), ...(why ? [why] : [])];
+    const chips = [...(whyChip(why) ? [whyChip(why)] : []), ...c.triggers];
+    const full = plansOf(h).length >= MAX_PLANS;
+    return `<section class="notice soft opening" aria-label="After today's slip"><span class="eyebrow">${esc(h.name)}</span>
+      <h3>A slip is one day, not the whole story.</h3><p class="small">${claim('slip.research')}</p>
+      ${said.length ? `<p class="small">What was going on: ${said.map(esc).join(', ')}.</p>` : ''}
+      ${tipLine(h, tipFor(h, chips))}${planLine(h)}${rewardLine(h)}
+      <div class="row">${tipsButton(h)}<button data-act="${full ? 'cardplans' : 'cardplan'}:${h.id}">${full ? 'Manage your if-then plans' : 'Save a new plan'}</button></div></section>`;
+  }
+  if (c.kind === 'pattern') {
+    // No "Open [habit]": the habit card is one tap away (Mark, 2026-11-12). Only pattern cards can be hidden (ADR 0011 point 13).
+    const hide = '<button class="ghost" data-act="hidepattern">Hide this pattern</button>';
+    const line = patternLine({ ...c, kind: c.pkind });
+    if (c.cheer) return `<section class="notice soft opening" aria-label="Good news from your journal"><span class="eyebrow">From your journal</span>
+      <h3>You got through ${WEEKDAYS[c.day]} clean.</h3><p class="small">Before that, ${line}.</p>${rewardLine(h)}
+      <div class="row">${hide}</div></section>`;
+    const full = plansOf(h).length >= MAX_PLANS, manage = `<button data-act="cardplans:${h.id}">Manage your if-then plans</button>`;
+    const buttons = c.pkind === 'weekday' ? `${full ? manage : `<button data-act="cardweekplan:${h.id}:${c.day}">Make a ${WEEKDAYS[c.day]} plan</button>`}${tipsButton(h)}`
+      : c.pkind === 'trigger' ? `${tipsButton(h)}${full ? manage : `<button data-act="cardplan:${h.id}">Save a new plan</button>`}`
+      : c.pkind === 'together' ? tipsButton(h) : '';
+    return `<section class="notice soft opening" aria-label="A pattern from your journal"><span class="eyebrow">From your journal</span>
+      <h3>${line}.</h3><p class="small muted">${PATTERN_NOTE[c.pkind]}</p>
+      ${c.pkind === 'runs' ? '' : `${tipLine(h, tipFor(h, c.tag ? [c.tag] : []))}${planLine(h)}`}
+      <div class="row">${buttons}${hide}</div></section>`;
+  }
+  return `<section class="notice soft opening" aria-label="A few low days"><span class="eyebrow">Looking after you</span>
+    <h3>It's been a heavy few days.</h3><p class="small">${claim('mood.trigger')} So it's a good time to lean on your plan.</p>
+    ${c.trigger ? `<p class="small">You mentioned: ${esc(trigWord(c.trigger))}.</p>` : ''}
+    ${tipLine(h, tipFor(h, c.trigger ? [c.trigger] : []))}${planLine(h)}
+    <p class="small">If it feels like more than a habit, you don't have to face it alone. ${reachText()}</p>
+    <div class="row"><button data-go="help">See help lines</button>${tipsButton(h)}<button data-act="cardplans:${h.id}">Manage your if-then plan</button></div></section>`;
+}
+const reminderSwitchCard = () => `<section class="card" id="remindCard"><h2>Opening reminders</h2>
+  <p class="small muted">A soft card on the home screen after a slip, after a few low days in your journal, or when a pattern shows up. It never shows your notes.</p>
+  <div class="row"><button class="ghost" data-act="remindtoggle" role="switch" aria-checked="${remindersOn()}">${remindersOn() ? 'On' : 'Off'}</button></div></section>`;
+// The Patterns card on the journal screen: one line per habit with a pattern.
+function patternsCard() {
+  const t = todayKey(), found = allPatterns(state, t);
+  return `<section class="card" id="patternsCard"><h2>Patterns</h2>
+    ${found.length ? `${found.map(p => `<p>${patternLine(p)}.${brokenNote(p, t)}</p>`).join('')}<p class="small muted">Counted from your slips, your journal and your answers after a slip, over the last ${PATTERN_DAYS} days. Note text is never read.</p>`
+      : '<p class="small muted">Patterns show up here after a few check-ins and journal entries.</p>'}</section>`;
+}
 // A password box with a Show / Hide button (Mark, 2026-11-12), so the user can check what they typed. It switches in place, keeping the text.
 const showLabel = shown => `${glyph(shown ? 'ui:eye-off' : 'ui:eye', 18)}<span>${shown ? 'Hide' : 'Show'}</span>`;
 const passField = (id, auto, ph = '') => `<div class="pass-field"><input id="${id}" type="password" autocomplete="${auto}"${ph ? ` placeholder="${ph}"` : ''}>
@@ -1215,6 +1462,7 @@ function home() {
     <div class="home-grid">
       <div class="col">
         ${samsungNote()}
+        ${openingCardHtml()}
         ${checkinCard()}
         ${journalCard()}
         ${backupCard()}
@@ -1306,7 +1554,7 @@ function tipsCard(h) {
   const items = shown.map(t => `<div class="item tip"><div class="label">
       ${t.general ? '<span class="eyebrow">General tip</span>' : ''}<span>${esc(t.text)}</span>
       <span class="small muted">Source: <a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.source)}</a> · checked ${niceDate(t.checked)}</span></div></div>`).join('');
-  return `<section class="card"><h2>Tips</h2>
+  return `<section class="card" id="tipsCard"><h2>Tips</h2>
     <p class="small muted">${general ? 'Official sources have few tips for this habit yet, so these general tips come from official advice about other urges. ' : ''}Ideas from official health sources. They're support, not treatment.</p>
     <div class="list">${items}</div>
     ${all.length > TIPS_SHOWN ? `<div class="row"><button data-act="${view.tipsAll ? 'tipsless' : 'tipsall'}">${view.tipsAll ? 'Show fewer tips' : `Show all ${all.length} tips`}</button></div>` : ''}
@@ -1335,7 +1583,7 @@ function planCard(h) {
       <p class="small" id="planPreview">${t && a ? `<b>${esc(planSentence(t, a))}</b>` : '<span class="muted">Choose both to see your plan.</span>'}</p>
       <div class="row"><button type="submit" class="primary">Save plan</button><button type="button" class="ghost" data-act="planown">Write my own plan instead</button>${plans.length ? '<button type="button" class="ghost" data-act="planclose">Cancel</button>' : ''}</div></form>`;
   }
-  return `<section class="card"><h2>Your if-then plans</h2>
+  return `<section class="card" id="planCard"><h2>Your if-then plans</h2>
     <p class="small muted">${claim('plan.ifthen')} ${claim('plan.picked')}</p>
     ${plans.length ? `<div class="list">${list}</div>` : ''}${form}
     ${!open && !full ? '<div class="row"><button data-act="planopen">+ Add another plan</button></div>' : ''}
@@ -1343,32 +1591,50 @@ function planCard(h) {
   </section>`;
 }
 
-function bounceScreen() {
-  const h = habitById(view.id); if (!h) return home();
-  const p = progress(h);
-  const serious = h.type === 'drinking' || h.type === 'gambling' || h.type === 'drugs' || h.type === 'cannabis';
-  return `<div class="narrow">
-    <div class="card">
-      <div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>
-      <h1>A slip is one day, not the whole story.</h1>
-      <p>It's normal to feel bad about it. What matters now is the next choice, and you've already shown you can do this.</p>
-      <div class="kept">
+// Parts of the bounce-back screen, shared by the one-habit and several-habit versions.
+const keptStats = h => { const p = progress(h); return `<div class="kept">
         <div class="stat"><span class="eyebrow">Clean days kept</span><b>${p.clean}</b></div>
         <div class="stat"><span class="eyebrow">Money kept</span><b>${h.cost > 0 ? money(p.saved, h.currency) : '—'}</b></div>
         <div class="stat"><span class="eyebrow">Best run</span><b>${p.longest}</b></div>
-      </div>
+      </div>`; };
+const healthLine = h => HEALTH[h.type] ? "<p class=\"small muted\">Your body's recovery starts again from today. Everything you earned is still yours.</p>" : '';
+// Each habit gets its own "Was it one of these?" row, with that habit type's choices, saved to that habit.
+const whyRow = h => `<div class="row">${[...planTriggers(h.type).map((x, i) => [String(i), x]), ['x', 'Something else']].map(([k, x]) =>
+        `<button type="button" data-why="${k}" data-whyfor="${h.id}" aria-pressed="${(h.slipWhy || {})[todayKey()] === x}">${esc(x)}</button>`).join('')}</div>`;
+const plansList = h => plansOf(h).length ? `<p class="small">Your plans:</p><ul class="small">${plansOf(h).map(pl => `<li><b>${esc(pl.text)}</b></li>`).join('')}</ul>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>';
+const SLIP_PRIVATE = '<p class="small muted">Only you see this. It stays on this phone, it\'s never a score, and you can skip it.</p>';
+function bounceScreen() {
+  const hs = (view.ids || [view.id]).map(habitById).filter(Boolean); if (!hs.length) return home();
+  const h = hs[0], many = hs.length > 1;
+  const serious = hs.some(x => ['drinking', 'gambling', 'drugs', 'cannabis'].includes(x.type));
+  // Warnings show once, if any habit needs them.
+  const notices = `${hs.some(x => x.type === 'drugs') ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${emergencyText(country())}.</p></div>` : ''}
+    ${serious ? `<div class="notice soft"><h3>If slips keep happening</h3><p>Talking to a professional can help. That's a strong step, not a failure.</p><div class="row"><button data-go="help">See help lines</button></div></div>` : ''}`;
+  const top = `<h1>A slip is one day, not the whole story.</h1>
+      <p>It's normal to feel bad about it. What matters now is the next choice, and you've already shown you can do this.</p>`;
+  if (many) return `<div class="narrow">
+    <div class="card"><span class="eyebrow">${hs.map(x => esc(x.name)).join(' · ')}</span>${top}
+      <p class="small muted">Your milestones and rewards stay. Only the current runs start again today. ${claim('slip.research')}</p></div>
+    ${hs.map(x => `<section class="card"><div class="habit-head"><span class="tile md">${glyph(habitIcon(x), 30)}</span><span class="eyebrow">${esc(x.name)}</span></div>
+      ${keptStats(x)}${healthLine(x)}
+      <h3>What happened just before?</h3><p class="small">Was it one of these?</p>${whyRow(x)}${plansList(x)}</section>`).join('')}
+    ${SLIP_PRIVATE}${notices}
+    <button class="primary" data-go="home">Start my new runs</button></div>`;
+  return `<div class="narrow">
+    <div class="card">
+      <div class="habit-head"><span class="tile md">${glyph(habitIcon(h), 30)}</span><span class="eyebrow">${esc(h.name)}</span></div>
+      ${top}
+      ${keptStats(h)}
       <p class="small muted">Your milestones and rewards stay. Only the current run starts again today. ${claim('slip.research')}</p>
-      ${HEALTH[h.type] ? "<p class=\"small muted\">Your body's recovery starts again from today. Everything you earned is still yours.</p>" : ''}
+      ${healthLine(h)}
     </div>
     <section class="card"><h2>What happened just before?</h2>
       <p>Noticing the trigger helps you plan for it next time. Was it one of these?</p>
-      <div class="row">${[...planTriggers(h.type).map((x, i) => [String(i), x]), ['x', 'Something else']].map(([k, x]) =>
-        `<button type="button" data-why="${k}" aria-pressed="${(h.slipWhy || {})[todayKey()] === x}">${esc(x)}</button>`).join('')}</div>
-      <p class="small muted">Only you see this. It stays on this phone, it's never a score, and you can skip it.</p>
-      ${plansOf(h).length ? `<p class="small">Your plans:</p><ul class="small">${plansOf(h).map(pl => `<li><b>${esc(pl.text)}</b></li>`).join('')}</ul>` : '<p class="small muted">You can add an if-then plan on the habit page.</p>'}
+      ${whyRow(h)}
+      ${SLIP_PRIVATE}
+      ${plansList(h)}
     </section>
-    ${h.type === 'drugs' ? `<div class="notice" role="alert"><h3>Please be careful today</h3><p><b>${claim('drugs.tolerance')}</b> If you feel unwell, call ${emergencyText(country())}.</p></div>` : ''}
-    ${serious ? `<div class="notice soft"><h3>If slips keep happening</h3><p>Talking to a professional can help. That's a strong step, not a failure.</p><div class="row"><button data-go="help">See help lines</button></div></div>` : ''}
+    ${notices}
     <button class="primary" data-open="${h.id}">Start my new run</button></div>`;
 }
 
@@ -1534,7 +1800,10 @@ function bind() {
     r.claimed = true; save(); render(); toast(`Enjoy it: ${r.name}`);
   }));
   app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => act(b.dataset.act)));
-  app.querySelectorAll('[data-slipfor]').forEach(b => b.addEventListener('click', () => slipFor(b.dataset.slipfor)));
+  app.querySelectorAll('[data-slippick]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.slippick, p = view.slipPicked || [];
+    view.slipPicked = p.includes(id) ? p.filter(x => x !== id) : [...p, id]; render();
+  }));
   const countryForm = document.getElementById('countryForm');
   if (countryForm) countryForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -1649,7 +1918,7 @@ function bind() {
   app.querySelectorAll('[data-jremove]').forEach(b => b.addEventListener('click', () => removeJournal(b.dataset.jremove)));
   app.querySelectorAll('[data-planremove]').forEach(b => b.addEventListener('click', () => removePlan(Number(b.dataset.planremove))));
   app.querySelectorAll('[data-why]').forEach(b => b.addEventListener('click', () => {
-    const h = habitById(view.id); if (!h) return;
+    const h = habitById(b.dataset.whyfor || view.id); if (!h) return;
     setSlipWhy(h, b.dataset.why); render();
   }));
   const rewardForm = document.getElementById('rewardForm');
@@ -1664,17 +1933,20 @@ function bind() {
 }
 const val = id => document.getElementById(id)?.value ?? '';
 // Log a slip for today (once per day) and show the bounce-back screen. A slip also counts as today's check-in.
-function slipFor(id) {
-  const h = habitById(id); if (!h) return;
+// Logs today's slip for one habit or several, then shows one bounce-back screen for all of them.
+function slipFor(ids) {
+  const hs = [].concat(ids).map(habitById).filter(Boolean); if (!hs.length) return;
   const t = todayKey();
-  if (!h.slips.includes(t)) h.slips.push(t);
+  hs.forEach(h => { if (!h.slips.includes(t)) h.slips.push(t); });
   state.checkin = t;
-  save(); go('bounce', { id: h.id });
+  save(); go('bounce', { id: hs[0].id, ids: hs.map(h => h.id) });
 }
 
 function act(a) {
-  if (a === 'skip') { state.demoOffsetDays = (state.demoOffsetDays || 0) + 1; save(); render(); toast('Demo clock: one day later'); }
-  if (a === 'resetclock') { state.demoOffsetDays = 0; save(); render(); toast('Back to today'); }
+  // A new day closes a half-done check-in ("Which habit?" or "Log today as a clean day?"), so it starts again (Mark, 2026-11-12).
+  const freshHome = () => { if (view.name === 'home') view = { name: 'home' }; };
+  if (a === 'skip') { state.demoOffsetDays = (state.demoOffsetDays || 0) + 1; freshHome(); save(); render(); toast('Demo clock: one day later'); }
+  if (a === 'resetclock') { state.demoOffsetDays = 0; freshHome(); save(); render(); toast('Back to today'); }
   if (a === 'clearex') { state.habits = state.habits.filter(h => !h.example); state.examples = false; save(); render(); toast('Examples removed'); }
   if (a === 'addex') { state.habits = [...state.habits, ...exampleHabits()]; state.examples = true; save(); render(); toast('Examples loaded'); }
   if (a === 'slip') slipFor(view.id);
@@ -1683,6 +1955,7 @@ function act(a) {
     if (state.habits.length === 1) slipFor(state.habits[0].id);
     else { view = { name: 'home', pickSlip: true }; render(); }
   }
+  if (a === 'logslips') slipFor(state.habits.filter(h => (view.slipPicked || []).includes(h.id)).map(h => h.id));
   if (a === 'cancelslip') { view = { name: 'home' }; render(); }
   if (a === 'hidesamsung') { state.samsungNoteHidden = true; save(); render(); }
   if (a === 'iconopen' || a === 'iconclose') { view.iconOpen = a === 'iconopen'; render(); }
@@ -1702,6 +1975,17 @@ function act(a) {
   if (a === 'restorepick') document.getElementById('rFile')?.click?.();
   if (a === 'restore') restoreBackup();
   if (a === 'restorecancel') { view.restore = null; render(); }
+  // Buttons on the slip and low-mood cards: open the habit at its tips (all shown) or at its plans (picker open for a new one).
+  const [verb, arg, third] = a.split(':');
+  if (verb === 'cardtips' && habitById(arg)) { go('habit', { id: arg, tipsAll: true }); document.getElementById('tipsCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
+  // "Make a Friday plan": the plan maker's own-words box, started for the user (Mark, 2026-11-12).
+  if (verb === 'cardweekplan' && habitById(arg) && WEEKDAYS[third]) { go('habit', { id: arg, planOpen: true, planOwn: true, planOwnText: `If it's ${WEEKDAYS[third]}, then I will ` }); document.getElementById('planCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
+  if (a === 'hidepattern') {
+    const p = homePattern(state, todayKey());
+    if (p) { state.patternHidden = { ...(state.patternHidden || {}), [patternKey(p)]: todayKey() }; save(); render(); toast('Pattern hidden'); }
+  }
+  if ((verb === 'cardplan' || verb === 'cardplans') && habitById(arg)) { go('habit', { id: arg, planOpen: verb === 'cardplan' }); document.getElementById('planCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
+  if (a === 'remindtoggle') { state.patternReminder = !remindersOn(); save(); render(); toast(remindersOn() ? 'Opening reminders on' : 'Opening reminders off'); }
   if (a === 'backupsnooze') { state.backupSnooze = todayKey(); save(); render(); }
   if (a === 'backupnow') { go('journal'); document.getElementById('dataCard')?.scrollIntoView?.({ behavior: 'smooth' }); }
   if (a === 'theme') { state.theme = isDark() ? 'light' : 'dark'; applyTheme(); save(); render(); }
