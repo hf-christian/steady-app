@@ -262,6 +262,40 @@ legend.hint { width: 100%; }
 .half { text-align: center; font-weight: 700; color: var(--accent); }
 .half:empty { display: none; }
 .crave-btn { width: 100%; }
+/* calm games on the timer (DDD 8.9, ADR 0014): no score, no prizes, no sounds; the breathing guide stays above */
+.game { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.game-head { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.game-head b { flex: 1; }
+.g-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: min(260px, 80vw); margin: var(--s2) auto; }
+.g-cell { aspect-ratio: 1; min-height: 44px; padding: 0; border-radius: 6px; border: 2px dashed color-mix(in srgb, var(--muted) 60%, var(--surface)); background: var(--surface); }
+.g-cell.f { border-style: solid; }
+/* each block has its own calm colour (Mark, 2026-11-17); no coral or red, which mean help in Steady */
+.g-board, .g-tray, .g-ghost { --g0: #2f7d5b; --g1: #3b6fb0; --g2: #b98316; --g3: #85589e; --g4: #1f8389; }
+:root[data-theme="dark"] .g-board, :root[data-theme="dark"] .g-tray, :root[data-theme="dark"] .g-ghost { --g0: #6cc39b; --g1: #82abe2; --g2: #e2b866; --g3: #bb9ad8; --g4: #5fc3c9; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .g-board, :root:not([data-theme="light"]) .g-tray, :root:not([data-theme="light"]) .g-ghost { --g0: #6cc39b; --g1: #82abe2; --g2: #e2b866; --g3: #bb9ad8; --g4: #5fc3c9; } }
+.g-p0 { --gc: var(--g0); } .g-p1 { --gc: var(--g1); } .g-p2 { --gc: var(--g2); } .g-p3 { --gc: var(--g3); } .g-p4 { --gc: var(--g4); }
+.g-cell.f, .g-piece i:not(.e), .g-ghost i:not(.e) { background: var(--gc); border-color: color-mix(in srgb, var(--gc) 70%, var(--ink)); }
+.g-cell.hint { border-style: solid; border-color: var(--gc); background: color-mix(in srgb, var(--gc) 30%, var(--surface)); }
+.g-tray { display: flex; flex-wrap: wrap; gap: var(--s3); justify-content: center; align-items: center; }
+.g-piece, .g-piece[aria-pressed] { display: inline-grid; gap: 3px; padding: 8px; min-height: 44px; min-width: 44px; border-radius: 10px; background: transparent; border: 2px solid transparent; touch-action: none; }
+.g-piece[aria-pressed="true"] { border-color: var(--ink); background: var(--subtle); }
+.g-piece i, .g-ghost i { display: block; width: 22px; height: 22px; border-radius: 4px; border: 2px solid transparent; box-sizing: border-box; }
+.g-piece i.e, .g-ghost i.e { background: transparent; border-color: transparent; }
+.g-piece.lifted { opacity: .25; }
+.g-ghost { position: fixed; z-index: 50; display: grid; pointer-events: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)); }
+.g-ghost.home { transition: left .2s var(--ease), top .2s var(--ease); }
+.g-slide { transition: transform .26s var(--ease); }
+.g-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: min(280px, 84vw); margin: var(--s2) auto; }
+.g-tile { aspect-ratio: 1; min-height: 44px; padding: 0; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); border: 2px solid color-mix(in srgb, var(--accent) 60%, var(--surface)); }
+.g-tile.up { background: var(--surface); }
+.g-tile.found { background: var(--surface); border-style: dashed; opacity: .75; }
+.g-pat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: min(260px, 80vw); margin: var(--s2) auto; }
+.g-pat button { aspect-ratio: 1; min-height: 44px; padding: 0; border-radius: 10px; background: var(--surface); border: 2px solid color-mix(in srgb, var(--muted) 55%, var(--surface)); }
+.g-pat button.lit, .g-pat button.pick { background: var(--accent); border-color: var(--accent); }
+.g-pat button.miss { background: transparent; border: 3px dashed var(--gold); }
+.g-pat button.wrong { background: color-mix(in srgb, var(--muted) 45%, var(--surface)); border-color: var(--muted); }
+.g-pat.showing button { cursor: default; }
+.g-msg { text-align: center; min-height: 1.4em; }
 /* DDD 8.8: the user's own reason on the timer, and a full-screen "Done" that can be read from across a room */
 .reason { text-align: center; margin: var(--s3) 0 0; display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
 .reason p { margin: 0; }
@@ -369,6 +403,7 @@ const CLAIMS = {
   'craving.gambling': 'Urges often rise and fall like waves. Waiting gives an urge time to pass or ease.',
   'craving.drugs': 'Cravings tend to last for a matter of minutes and then pass.',
   'craving.overeating': 'Most people find the urge to eat fades over time.',
+  'craving.puzzle': 'A small study found 3 minutes of a block puzzle eased cravings.',
   'plan.ifthen': "Plans that name a trigger and what you'll do instead help some people follow through.",
   'plan.picked': "In one study of drinking, picking a ready-made plan from a list worked as well as writing your own. The effect is modest, so treat a plan as one tool among others.",
   'alcohol.doctor': 'If you drink heavily or every day, talk to a doctor before you stop.',
@@ -549,6 +584,7 @@ const CLAIM_SRC = {
   'slip.research': BPS_HABITS, 'milestone.66': BPS_HABITS,
   'plan.ifthen': ['National Cancer Institute', 'https://cancercontrol.cancer.gov/brp/constructs/implementation_intentions/goal_intent_attain.pdf'],
   'plan.picked': ['Armitage 2009', 'https://doi.org/10.1037/a0015984'],
+  'craving.puzzle': ['University of Plymouth', 'https://researchportal.plymouth.ac.uk/en/publications/playing-tetris-decreases-drug-and-other-cravings-in-real-world-se-2/'],
   'reminder.routine': ['Stawarz 2015', 'https://research-information.bris.ac.uk/en/publications/beyond-self-tracking-and-reminders-designing-smartphone-apps-that/'],
 };
 const srcA = ([name, url], text = name) => `<a href="${url}" target="_blank" rel="noopener">${text}</a>`;
@@ -1749,8 +1785,11 @@ const cravingNow = () => { const c = state.craving; return c && habitById(c.id) 
 const waitRunning = () => { const c = cravingNow(); return !!c && !c.done && !c.stopped; };
 // more: "Wait 5 more minutes" carries on the same craving, so it doesn't count a second one (QA B12, Mark 2026-11-13).
 // DDD 8.8: lastCrave is the habit used last, so "Craving?" starts at once next time; ri picks a different reason each wait.
+// Calm games on the timer (DDD 8.9): kept in memory only, never saved or backed up.
+let game = null;
 function newCraving(id, mins, more) {
   const h = habitById(id); if (!h) return false;
+  if (!more) game = null; // DDD 8.9: every new wait starts on breathing; "Wait 5 more minutes" keeps the game where it was
   state.lastCrave = h.id;
   if (!more) state.reasonTurn = (state.reasonTurn || 0) + 1;
   state.craving = { id: h.id, start: clockMs(), mins: mins || craveMins(h), ri: state.reasonTurn || 0, ...(more ? { more: true } : {}) };
@@ -1903,6 +1942,248 @@ function timerJournal(h) {
       <div class="row"><button type="submit" class="primary">${state.journal[todayKey()] ? 'Save changes' : 'Save to journal'}</button><button type="button" class="ghost" data-act="cravejournalx">Cancel</button></div>
     </form>`;
 }
+// ---------- Calm games on the craving timer (DDD 8.9, ADR 0014; Sophia's idea, Mark 2026-11-17) ----------
+// The breathing guide stays; a game is an extra choice under it. All three are original. None has a score, levels,
+// prizes, sounds or a clock of its own, and each stops when the wait ends. Not offered for phone use (choice B).
+const GAMES = [['shapes', 'Fit the shapes'], ['pairs', 'Find the pairs'], ['pattern', 'Copy the pattern']];
+const gamesFor = h => !!h && h.type !== 'phone';
+// Fit the shapes: 4 x 4 outlines, each cut into pieces (one letter per piece). Pieces never turn.
+const SHAPES = [
+  ['AABB', 'AABB', 'CCDD', 'CCDD'],
+  ['AAAB', 'CCAB', 'CDDB', 'CDDB'],
+  ['ABBB', 'AACB', 'DACC', 'DDDC'],
+  ['AAAA', 'BCCD', 'BCCD', 'BBDD'],
+  ['ABBC', 'ABCC', 'AADC', 'DDDC'],
+  ['AABC', 'ABBC', 'DDBC', 'DDEE'],
+];
+// A piece's squares, as [row, col] from its first square in reading order.
+function shapePieces(li) {
+  const rows = SHAPES[li % SHAPES.length], out = {};
+  rows.forEach((r, y) => [...r].forEach((k, x) => { (out[k] = out[k] || []).push([y, x]); }));
+  return Object.fromEntries(Object.entries(out).sort().map(([k, cells]) => [k, cells.map(([y, x]) => [y - cells[0][0], x - cells[0][1]])]));
+}
+function shapeBoard(g) {
+  const board = Array.from({ length: 4 }, () => Array(4).fill(null)), pieces = shapePieces(g.li);
+  for (const [k, [y0, x0]] of Object.entries(g.placed)) pieces[k].forEach(([y, x]) => { board[y0 + y][x0 + x] = k; });
+  return board;
+}
+// Place the picked piece so it covers the tapped square, if it fits anywhere that way (forgiving: any of its squares).
+function shapePlace(g, ty, tx) {
+  const cells = shapePieces(g.li)[g.sel], board = shapeBoard(g);
+  // Where the outline's own drawing puts it comes first, so a near miss lands in a spot that can still be finished.
+  const rows = SHAPES[g.li % SHAPES.length], sy = rows.findIndex(r => r.includes(g.sel)), home = [[ty - sy, tx - rows[sy].indexOf(g.sel)]].filter(([a, b]) => cells.some(([y, x]) => y === a && x === b));
+  for (const [dy, dx] of [...home, ...cells]) {
+    const y0 = ty - dy, x0 = tx - dx;
+    if (cells.every(([y, x]) => board[y0 + y]?.[x0 + x] === null)) { g.placed[g.sel] = [y0, x0]; g.sel = null; g.msg = ''; return true; }
+  }
+  g.msg = "That spot doesn't fit. Try another."; return false;
+}
+const shapeDone = g => Object.keys(g.placed).length === Object.keys(shapePieces(g.li)).length;
+// A dragged piece dropped with its top-left corner over square (y0, x0): it goes exactly there if it fits.
+function shapeFits(g, k, y0, x0) {
+  const cells = shapePieces(g.li)[k], minX = Math.min(...cells.map(c => c[1])), board = shapeBoard(g), ay = y0, ax = x0 - minX;
+  return cells.every(([y, x]) => board[ay + y]?.[ax + x] === null) ? [ay, ax] : null;
+}
+function shapeDrop(g, k, y0, x0) {
+  if (g.placed[k] || !(k in shapePieces(g.li))) return false;
+  const at = shapeFits(g, k, y0, x0);
+  if (!at) { g.sel = null; g.msg = "That spot doesn't fit. Try another."; return false; }
+  g.placed[k] = at; g.sel = null; g.msg = ''; return true;
+}
+// Find the pairs: 6 neutral pictures (no food, money, tickets or habit icons), 12 tiles.
+const PAIR_ICONS = ['shoe', 'plane', 'palm', 'music', 'book', 'heart'];
+function shuffled(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
+const newPairs = () => ({ tiles: shuffled([...PAIR_ICONS, ...PAIR_ICONS]), open: [], found: [] });
+function pairTap(g, i) {
+  if (g.found.includes(i)) return;
+  if (g.open.length === 2) g.open = []; // a pair that didn't match stays face up until the next tap: no rush
+  if (g.open.includes(i)) return;
+  g.open.push(i);
+  if (g.open.length === 2 && g.tiles[g.open[0]] === g.tiles[g.open[1]]) { g.found.push(...g.open); g.open = []; }
+}
+// Copy the pattern (Mark, 2026-11-17; replaces Snake): squares on a 4 x 4 grid light up for 3 seconds (or until "I've got it"),
+// then go dark, and the user taps them back from memory: holding a picture in mind is what the study's idea rests on.
+// No score and no count of rounds. It quietly gets one square harder after a full match and one easier after a miss (3 to 7).
+const PAT_SIZE = 16, PAT_MIN = 3, PAT_MAX = 7, PAT_SHOW_MS = 3000;
+function newPattern(n = PAT_MIN) {
+  const cells = shuffled([...Array(PAT_SIZE).keys()]).slice(0, n).sort((a, b) => a - b);
+  return { n, cells, picks: [], phase: 'show', showUntil: clockMs() + PAT_SHOW_MS };
+}
+function patternTap(g, i) {
+  if (g.phase !== 'recall' || !(i >= 0 && i < PAT_SIZE)) return;
+  g.picks = g.picks.includes(i) ? g.picks.filter(x => x !== i) : [...g.picks, i]; // tap again to undo
+  if (g.picks.length === g.n) { g.phase = 'done'; g.right = g.cells.every(c => g.picks.includes(c)); }
+}
+function startGame(kind) {
+  const base = { open: true, kind, msg: '' };
+  if (kind === 'shapes') game = { ...base, li: Math.floor(Math.random() * SHAPES.length), placed: {}, sel: null };
+  else if (kind === 'pairs') game = { ...base, ...newPairs() };
+  else game = { ...base, kind: 'pattern', ...newPattern() };
+}
+function gameAct(a) {
+  const [cmd, p1, p2] = a.split(':');
+  if (cmd === 'open') game = { ...(game || {}), open: true, kind: null };
+  else if (cmd === 'close') game = null;
+  else if (cmd === 'menu') game = { open: true, kind: null };
+  else if (cmd === 'pick' && GAMES.some(([k]) => k === p1)) startGame(p1);
+  else if (game?.kind === 'shapes') {
+    const g = game;
+    if (cmd === 'sel' && shapeSkip?.k === p1 && clockMs() - shapeSkip.t < 300) { shapeSkip = null; return; } // the tap that ends a drag isn't also a pick
+    if (cmd === 'sel' && !g.placed[p1] && p1 in shapePieces(g.li)) { g.sel = g.sel === p1 ? null : p1; g.msg = ''; }
+    if (cmd === 'cell') {
+      const y = Number(p1), x = Number(p2), k = shapeBoard(g)[y]?.[x];
+      if (k && !g.sel) { delete g.placed[k]; g.sel = k; g.msg = ''; } // tap a placed piece to pick it back up
+      else if (g.sel && k == null) shapePlace(g, y, x);
+    }
+    if (cmd === 'reset') { g.placed = {}; g.sel = null; g.msg = ''; }
+    if (cmd === 'next') { g.li = (g.li + 1) % SHAPES.length; g.placed = {}; g.sel = null; g.msg = ''; }
+  } else if (game?.kind === 'pattern') {
+    const g = game;
+    if (cmd === 'ready' && g.phase === 'show') { g.phase = 'recall'; g.picks = []; }
+    if (cmd === 'again' && g.phase === 'recall') { g.phase = 'show'; g.picks = []; g.showUntil = clockMs() + PAT_SHOW_MS; }
+    if (cmd === 'tap') patternTap(g, Number(p1));
+    if (cmd === 'next' && g.phase === 'done') Object.assign(g, newPattern(Math.max(PAT_MIN, Math.min(PAT_MAX, g.n + (g.right ? 1 : -1)))));
+  } else if (game?.kind === 'pairs') {
+    if (cmd === 'tile') pairTap(game, Number(p1));
+    if (cmd === 'next') Object.assign(game, newPairs());
+  }
+  render();
+}
+function shapesBody(g) {
+  const pieces = shapePieces(g.li), keys = Object.keys(pieces), board = shapeBoard(g), ci = k => `g-p${keys.indexOf(k) % 5}`;
+  const cells = board.map((r, y) => r.map((k, x) => `<button class="g-cell${k ? ` f ${ci(k)}` : ''}" data-act="g:cell:${y}:${x}" data-y="${y}" data-x="${x}"${k ? ` data-k="${k}"` : ''} aria-label="Row ${y + 1}, square ${x + 1}, ${k ? 'filled' : 'empty'}"></button>`).join('')).join('');
+  if (shapeDone(g)) return `<div class="g-board" role="group" aria-label="The outline">${cells}</div>
+    <p class="g-msg"><b>All filled.</b></p><div class="row center"><button data-act="g:next">Next shape</button></div>`;
+  const tray = keys.filter(k => !g.placed[k]).map(k => {
+    const sq = pieces[k], minX = Math.min(...sq.map(s => s[1])), w = Math.max(...sq.map(s => s[1])) - minX + 1, h = Math.max(...sq.map(s => s[0])) + 1;
+    const grid = Array.from({ length: h * w }, (_, i) => sq.some(([y, x]) => y === Math.floor(i / w) && x - minX === i % w) ? '<i></i>' : '<i class="e"></i>').join('');
+    return `<button class="g-piece ${ci(k)}" style="grid-template-columns:repeat(${w},22px)" data-act="g:sel:${k}" data-piece="${k}" data-w="${w}" data-h="${h}" data-minx="${minX}" aria-pressed="${g.sel === k}" aria-label="Shape of ${sq.length} squares">${grid}</button>`;
+  }).join('');
+  return `<p class="small muted">${g.sel ? 'Now tap the outline where it goes.' : 'Drag a shape into the outline, or tap it and then tap where it goes. Tap a placed shape to pick it up again.'}</p>
+    <div class="g-board" role="group" aria-label="The outline">${cells}</div>
+    <p class="g-msg small" aria-live="polite">${esc(g.msg || '')}</p>
+    <div class="g-tray">${tray}</div>
+    <div class="row center"><button class="ghost" data-act="g:reset">Start this one again</button></div>`;
+}
+function pairsBody(g) {
+  const tiles = g.tiles.map((k, i) => {
+    const up = g.open.includes(i), found = g.found.includes(i);
+    return `<button class="g-tile${up ? ' up' : ''}${found ? ' found' : ''}" data-act="g:tile:${i}" aria-label="${up || found ? `Tile ${i + 1}: ${esc(REWARD_ICONS[k][0])}` : `Tile ${i + 1}, face down`}">${up || found ? glyph(k, 30) : ''}</button>`;
+  }).join('');
+  const done = g.found.length === g.tiles.length;
+  return `<p class="small muted">Turn two tiles at a time and find the pairs.</p><div class="g-tiles">${tiles}</div>
+    ${done ? '<p class="g-msg"><b>All pairs found.</b></p><div class="row center"><button data-act="g:next">New tiles</button></div>' : ''}`;
+}
+function patternBody(g) {
+  const cls = i => {
+    if (g.phase === 'show') return g.cells.includes(i) ? 'lit' : '';
+    if (g.phase === 'recall') return g.picks.includes(i) ? 'pick' : '';
+    const inP = g.cells.includes(i), picked = g.picks.includes(i);
+    return inP && picked ? 'pick' : inP ? 'miss' : picked ? 'wrong' : '';
+  };
+  const label = i => ({ lit: 'lit', pick: 'picked', miss: 'was lit', wrong: 'not lit' }[cls(i)] || 'dark');
+  const cells = Array.from({ length: PAT_SIZE }, (_, i) => `<button type="button" class="${cls(i)}" ${g.phase === 'recall' ? `data-act="g:tap:${i}"` : 'tabindex="-1"'} aria-label="Square ${i + 1}, ${label(i)}"></button>`).join('');
+  const top = g.phase === 'show' ? `<p><b>Remember the lit squares.</b></p>`
+    : g.phase === 'recall' ? `<p><b>Tap the ${g.n} squares that were lit.</b> <span class="small muted">Tap one again to undo.</span></p>`
+    : `<p><b>${g.right ? 'All matched.' : "Here's how it looked."}</b>${g.right ? '' : ' <span class="small muted">Dashed squares were lit.</span>'}</p>`;
+  const btn = g.phase === 'show' ? `<button data-act="g:ready">I've got it</button>`
+    : g.phase === 'recall' ? `<button class="ghost" data-act="g:again">Show me again</button>`
+    : `<button data-act="g:next">Next pattern</button>`;
+  return `${top}<div class="g-pat${g.phase === 'show' ? ' showing' : ''}" id="patBoard" role="group" aria-label="Pattern grid">${cells}</div>
+    <div class="row center">${btn}</div>`;
+}
+function gameBlock(h) {
+  if (!gamesFor(h)) return '';
+  const said = `<p class="small muted">${claim('craving.puzzle')}${cite('craving.puzzle')}</p>`;
+  if (!game?.open) return '<div class="row center"><button data-act="g:open">Play a game while you wait</button></div>';
+  if (!game.kind) return `<section class="game" aria-label="Games"><p><b>Pick a game.</b> The timer and breathing keep going.</p>
+    <div class="row">${GAMES.map(([k, name]) => `<button data-act="g:pick:${k}">${name}</button>`).join('')}<button class="ghost" data-act="g:close">Close</button></div>${said}</section>`;
+  const name = GAMES.find(([k]) => k === game.kind)[1];
+  const body = game.kind === 'shapes' ? shapesBody(game) : game.kind === 'pairs' ? pairsBody(game) : patternBody(game);
+  return `<section class="game" aria-label="${name}"><div class="game-head"><b>${name}</b><button class="link small" data-act="g:menu">Other games</button><button class="link small" data-act="g:close">Close</button></div>
+    ${body}${said}</section>`;
+}
+// Fit the shapes on the phone (Mark, 2026-11-17): drag a block from the tray and it follows the finger at full size,
+// the outline shows where it would land, and on letting go it slides in (or back to the tray if it doesn't fit).
+// A tap-and-tap placement slides up from the tray too. With "reduce motion" on, blocks jump instead of sliding.
+let shapeSkip = null, shapeSlide = null;
+function slideIn() {
+  const s = shapeSlide; shapeSlide = null;
+  if (!s || reduceMotion()) return;
+  const cells = [...document.querySelectorAll?.(`.g-cell[data-k="${s.k}"]`) || []];
+  if (!cells.length) return;
+  const rs = cells.map(c => c.getBoundingClientRect()), left = Math.min(...rs.map(r => r.left)), top = Math.min(...rs.map(r => r.top));
+  const dx = s.x - left, dy = s.y - top;
+  cells.forEach(c => { c.style.transition = 'none'; c.style.transform = `translate(${dx}px, ${dy}px)`; });
+  void cells[0].offsetWidth; // let the browser draw the start point before sliding
+  cells.forEach(c => { c.classList.add('g-slide'); c.style.transition = ''; c.style.transform = ''; });
+}
+function bindShapes() {
+  document.querySelectorAll?.('.g-ghost').forEach(x => x.remove()); // a redraw mid-drag (say, the timer ending) never leaves a floating block
+  if (game?.kind !== 'shapes') return;
+  slideIn();
+  const board = document.querySelector?.('.g-board');
+  if (!board) return;
+  // Tap-and-tap: remember where the picked block sits in the tray, so it slides from there.
+  board.querySelectorAll('.g-cell').forEach(c => c.addEventListener('click', () => {
+    const p = game?.sel && document.querySelector(`.g-piece[data-piece="${game.sel}"]`);
+    if (p) { const r = p.getBoundingClientRect(); shapeSlide = { k: game.sel, x: r.left + 8, y: r.top + 8 }; }
+  }));
+  document.querySelectorAll('.g-piece').forEach(p => p.addEventListener('pointerdown', e => {
+    const k = p.dataset.piece, w = Number(p.dataset.w), h = Number(p.dataset.h), pr = p.getBoundingClientRect();
+    const cell = board.querySelector('.g-cell').getBoundingClientRect().width, gap = 4, step = cell + gap;
+    // Where on the block the finger is, as a share of its size, so the full-size copy stays under the finger the same way
+    const fx = (e.clientX - pr.left) / pr.width, fy = (e.clientY - pr.top) / pr.height;
+    const gw = w * step - gap, gh = h * step - gap;
+    let ghost = null, sx = e.clientX, sy = e.clientY, target = null;
+    const place = (cx, cy) => { ghost.style.left = `${cx - fx * gw}px`; ghost.style.top = `${cy - fy * gh}px`; };
+    const hints = () => board.querySelectorAll('.g-cell.hint').forEach(c => { c.classList.remove('hint', ...[0, 1, 2, 3, 4].map(i => `g-p${i}`)); });
+    const aim = () => {
+      const br = board.getBoundingClientRect(), gr = ghost.getBoundingClientRect();
+      const y0 = Math.round((gr.top - br.top) / step), x0 = Math.round((gr.left - br.left) / step);
+      hints(); target = null;
+      const at = shapeFits(game, k, y0, x0); if (!at) return;
+      target = [y0, x0];
+      shapePieces(game.li)[k].forEach(([y, x]) => { const c = board.querySelector(`.g-cell[data-y="${at[0] + y}"][data-x="${at[1] + x}"]`); c?.classList.add('hint', [...p.classList].find(n => /^g-p\d$/.test(n))); });
+    };
+    const move = ev => {
+      if (!ghost) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+        ghost = document.createElement('div');
+        ghost.className = `g-ghost ${[...p.classList].find(n => /^g-p\d$/.test(n))}`;
+        ghost.style.gridTemplateColumns = `repeat(${w}, ${cell}px)`; ghost.style.gap = `${gap}px`;
+        ghost.innerHTML = [...p.children].map(i => `<i class="${i.className}" style="width:${cell}px;height:${cell}px"></i>`).join('');
+        document.body.appendChild(ghost); p.classList.add('lifted');
+      }
+      ev.preventDefault(); place(ev.clientX, ev.clientY); aim();
+    };
+    const end = () => {
+      p.removeEventListener('pointermove', move); p.removeEventListener('pointerup', end); p.removeEventListener('pointercancel', end);
+      if (!ghost) return; // a plain tap: the normal tap handling picks the block
+      shapeSkip = { k, t: clockMs() }; hints();
+      const gr = ghost.getBoundingClientRect();
+      if (target && shapeDrop(game, k, target[0], target[1])) { ghost.remove(); shapeSlide = { k, x: gr.left, y: gr.top }; render(); return; }
+      // Doesn't fit: the block glides back to the tray
+      if (target === null) { game.msg = "That spot doesn't fit. Try another."; }
+      const back = () => { ghost.remove(); render(); };
+      if (reduceMotion()) return back();
+      ghost.classList.add('home'); ghost.style.left = `${pr.left}px`; ghost.style.top = `${pr.top}px`; setTimeout(back, 220);
+    };
+    try { p.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    p.addEventListener('pointermove', move); p.addEventListener('pointerup', end); p.addEventListener('pointercancel', end);
+  }));
+}
+// Copy the pattern: after 3 seconds the lit squares go dark by themselves (one timer at a time).
+let patTimer = 0;
+function bindPattern() {
+  if (patTimer) { clearTimeout(patTimer); patTimer = 0; }
+  if (game?.kind !== 'pattern' || game.phase !== 'show' || !document.getElementById('patBoard')) return;
+  const g = game;
+  patTimer = setTimeout(() => {
+    patTimer = 0;
+    if (game === g && g.phase === 'show' && view.name === 'craving') { g.phase = 'recall'; g.picks = []; render(); }
+  }, Math.max(0, g.showUntil - clockMs()));
+}
 function cravingScreen() {
   const c = cravingNow(); if (!c) return home();
   if (!c.done && !c.stopped && craveLeft() <= 0) finishCraving();
@@ -1930,6 +2211,7 @@ function cravingScreen() {
       <p class="breath-word" id="breathWord">${breathWord(Math.floor(sec))}</p>
       ${bt ? `<p class="small muted breath-src">${esc(bt.text)} (<a href="${esc(bt.url)}" target="_blank" rel="noopener">${esc(bt.source)}</a>)</p>` : ''}
       <p class="half" id="craveHalf">${halfway() ? HALFWAY : ''}</p>
+      ${gameBlock(h)}
       <div class="row center"><button class="ghost" data-act="cravestop">Stop</button></div>`;
   // DDD 8.8: the timer starts first; the habit can be changed after, without leaving the timer.
   const others = state.habits.filter(x => x.id !== h.id);
@@ -2176,6 +2458,7 @@ function leaving(fn, target) {
   pendingLeave = fn; view.askLeave = true; render(); window.scrollTo(0, 0);
 }
 function bind() {
+  bindPattern(); bindShapes(); // DDD 8.9: the pattern goes dark by itself; blocks can be dragged and slide in
   // A source link on the timer opens in a new tab: note it, so reading the page doesn't stop the wait (QA B2, Mark 2026-11-13).
   if (view.name === 'craving') app.querySelectorAll('a[target="_blank"]').forEach(a => a.addEventListener('click', () => {
     if (waitRunning()) { state.craving.readAt = clockMs(); save(); }
@@ -2191,7 +2474,7 @@ function bind() {
     const h = habitById(view.id); const r = h.rewards.find(x => x.id === b.dataset.claim);
     r.claimed = true; save(); render(); toast(`Enjoy it: ${r.name}`);
   }));
-  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { const a = b.dataset.act; if (STAY_ACTS.has(a) || a.startsWith('craveto:')) act(a); else leaving(() => act(a)); }));
+  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { const a = b.dataset.act; if (STAY_ACTS.has(a) || a.startsWith('craveto:') || a.startsWith('g:')) act(a); else leaving(() => act(a)); }));
   app.querySelectorAll('[data-slippick]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.slippick, p = view.slipPicked || [];
     view.slipPicked = p.includes(id) ? p.filter(x => x !== id) : [...p, id]; render();
@@ -2383,6 +2666,7 @@ function slipFor(ids) {
 }
 
 function act(a) {
+  if (a.startsWith('g:')) { if (view.name === 'craving') gameAct(a.slice(2)); return; } // DDD 8.9 games: always stay on the timer
   // A new day closes a half-done check-in ("Which habit?" or "Log today as a clean day?"), so it starts again (Mark, 2026-11-12).
   const freshHome = () => { if (view.name === 'home') view = { name: 'home' }; };
   if (a === 'skip') { state.demoOffsetDays = (state.demoOffsetDays || 0) + 1; freshHome(); save(); render(); toast('Demo clock: one day later'); }
